@@ -144,9 +144,10 @@ export function ConfigView({ profile }: { profile: string }) {
       <Card>
         <CardHeader><CardTitle>回复与运行</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <Field label="模型">
-            <SelectRow value={cfg.model} onChange={(v) => set("model", v)}
-              options={cfg.models.map((m) => [m.value, m.label])} />
+          <Field label="模型 ID / 别名"
+            hint="输入 Claude 或 Codex CLI 支持的模型名称；留空时使用 CLI / 账号默认模型。">
+            <Input value={cfg.model} placeholder="留空使用默认模型" spellCheck={false}
+              onChange={(e) => set("model", e.target.value)} />
           </Field>
           <Field label="消息回复方式">
             <SelectRow value={cfg.messageReply} onChange={(v) => set("messageReply", v as ConfigData["messageReply"])}
