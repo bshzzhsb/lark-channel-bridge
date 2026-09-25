@@ -60,6 +60,8 @@ describe('profile-aware account and config commands', () => {
 
     await h.command('/config submit', {
       message_reply: 'text',
+      dm_reply_placement: 'thread',
+      group_reply_placement: 'conversation',
       show_tool_calls: 'hide',
       max_concurrent_runs: '7',
       run_idle_timeout_minutes: '15',
@@ -75,6 +77,8 @@ describe('profile-aware account and config commands', () => {
     expect(root.profiles['codex-dev']).toBeDefined();
     expect(root.profiles.claude?.preferences).toMatchObject({
       messageReply: 'text',
+      dmReplyPlacement: 'thread',
+      groupReplyPlacement: 'conversation',
       messageReplyMigrated: true,
       showToolCalls: false,
       maxConcurrentRuns: 7,

@@ -4,9 +4,9 @@ import type { ChatModeCache } from './chat-mode-cache';
 /**
  * Compute the **session scope** for a message.
  *
- *  - **p2p / group**: scope = `chatId`. Replies in regular groups thread the
- *    UI but share the chat's session (matches user expectation).
- *  - **topic group**: scope = `${chatId}:${threadId}` — each topic is an
+ *  - **Messages without a thread**: scope = `chatId` here. The run dispatcher
+ *    assigns a root-message scope if its reply opens a new topic.
+ *  - **Existing topic**: scope = `${chatId}:${threadId}` — each topic is an
  *    independent conversation with its own session / cwd / pending queue.
  *    Topic-group top-level messages (no threadId, rare) fall back to chatId.
  *

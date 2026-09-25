@@ -2,6 +2,7 @@ export type AgentKind = "claude" | "codex";
 export type ProfileMode = "personal" | "team";
 export type LarkCliIdentity = "bot-only" | "user-default";
 export type MessageReply = "card" | "markdown" | "text";
+export type ReplyPlacement = "conversation" | "thread";
 export type CotMessages = "off" | "brief" | "detailed";
 
 export interface Status {
@@ -42,6 +43,8 @@ export interface ConfigView {
   model: string;
   models: ModelOption[];
   messageReply: MessageReply;
+  dmReplyPlacement: ReplyPlacement;
+  groupReplyPlacement: ReplyPlacement;
   showToolCalls: boolean;
   cotMessages: CotMessages;
   maxConcurrentRuns: number;

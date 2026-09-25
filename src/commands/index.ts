@@ -25,12 +25,14 @@ import { GROUP_MSG_SCOPE, hasGroupMsgScope } from '../bot/app-scope';
 import { requestScopeGrantLink } from '../bot/wizard';
 import { forgetManagedCard, sendManagedCard, updateManagedCard } from '../card/managed';
 import { helpCard, resumeCard, statusCard, workspacesCard } from '../card/templates';
-import type { AppConfig, AppPreferences, MessageReplyMode, TenantBrand } from '../config/schema';
+import type { AppConfig, AppPreferences, MessageReplyMode, ReplyPlacement, TenantBrand } from '../config/schema';
 import {
   getAgentStopGraceMs,
   getCotMessages,
   getMaxConcurrentRuns,
   getMessageReplyMode,
+  getReplyPlacement,
+  isReplyPlacement,
   getRequireMentionInGroup,
   getRunIdleTimeoutMs,
   getShowToolCalls,
@@ -79,6 +81,7 @@ import { RunRejected } from '../runtime/errors';
 import { validateAppCredentials } from '../utils/feishu-auth';
 import type { WorkspaceStore } from '../workspace/store';
 import { createBoundChat, defaultChatName } from '../bot/group';
+import { replyOptions } from '../bot/reply-placement';
 import { fetchKnownChats, type KnownChat } from '../bot/lark-info';
 import { describeMeetingError, type MeetingManager } from '../meeting/manager';
 import { isMeetingNo } from '../meeting/api';
@@ -118,9 +121,9 @@ export interface CommandContext {
   channel: LarkChannel;
   msg: NormalizedMessage;
   /**
-   * Session scope string. For p2p / regular group it equals `msg.chatId`;
-   * for topic groups it's `${chatId}:${threadId}` (so each topic gets its
-   * own session / cwd / active-run). All handlers should read/write
+   * Session scope string. Root messages use chatId; existing topics use a
+   * thread scope or the stable root-message scope created by this bot.
+   * All handlers should read/write
    * session / workspace / activeRuns through this — never through
    * `msg.chatId` directly.
    */
@@ -128,6 +131,8 @@ export interface CommandContext {
   /** Resolved chat mode for `msg.chatId`. Used by /status to surface the
    * scope semantic to the user (`topic` shows "话题独立 session"). */
   chatMode: 'p2p' | 'group' | 'topic';
+  /** Card actions can know they are in a topic even if Feishu omits thread_id. */
+  replyInThread?: boolean;
   sessions: SessionStore;
   sessionCatalog?: SessionCatalog;
   sessionCatalogIdentity?: SessionCatalogIdentity;
@@ -297,11 +302,8 @@ async function reply(ctx: CommandContext, markdown: string): Promise<void> {
   }
 }
 
-function commandReplyOptions(ctx: CommandContext): { replyTo: string; replyInThread?: true } {
-  return {
-    replyTo: ctx.msg.messageId,
-    ...(ctx.chatMode === 'topic' && ctx.msg.threadId ? { replyInThread: true as const } : {}),
-  };
+function commandReplyOptions(ctx: CommandContext): { replyTo: string; replyInThread: boolean } {
+  return replyOptions(ctx.controls.cfg, ctx.msg, ctx.chatMode === 'topic' || ctx.replyInThread === true);
 }
 
 function isMessageAuditReject(err: unknown): boolean {
@@ -1239,7 +1241,7 @@ async function handleDoctor(args: string, ctx: CommandContext): Promise<void> {
             },
           },
         },
-        { replyTo: ctx.msg.messageId },
+        commandReplyOptions(ctx),
       );
     } else {
       // Group / topic: buffer to completion, then DM the final card to the
@@ -1745,6 +1747,8 @@ async function showConfigForm(ctx: CommandContext): Promise<void> {
       ctx.controls.cfg.preferences?.model,
     ),
     messageReply: getMessageReplyMode(ctx.controls.cfg),
+    dmReplyPlacement: getReplyPlacement(ctx.controls.cfg, 'p2p'),
+    groupReplyPlacement: getReplyPlacement(ctx.controls.cfg, 'group'),
     showToolCalls: getShowToolCalls(ctx.controls.cfg),
     cotMessages: getCotMessages(ctx.controls.cfg),
     maxConcurrentRuns: getMaxConcurrentRuns(ctx.controls.cfg),
@@ -1796,6 +1800,12 @@ async function submitConfig(ctx: CommandContext): Promise<void> {
     rawReply === 'markdown' || rawReply === 'text' || rawReply === 'card'
       ? (rawReply as MessageReplyMode)
       : getMessageReplyMode(ctx.controls.cfg);
+  const rawDmPlacement = String(fv.dm_reply_placement ?? '').trim();
+  const dmReplyPlacement: ReplyPlacement = isReplyPlacement(rawDmPlacement)
+    ? rawDmPlacement : getReplyPlacement(ctx.controls.cfg, 'p2p');
+  const rawGroupPlacement = String(fv.group_reply_placement ?? '').trim();
+  const groupReplyPlacement: ReplyPlacement = isReplyPlacement(rawGroupPlacement)
+    ? rawGroupPlacement : getReplyPlacement(ctx.controls.cfg, 'group');
   const rawTools = String(fv.show_tool_calls ?? '').trim();
   const showToolCalls = rawTools !== 'hide';
   // Parse the model picker. Unexpected / empty values keep the current
@@ -1888,6 +1898,8 @@ async function submitConfig(ctx: CommandContext): Promise<void> {
       ...(ctx.controls.cfg.preferences ?? {}),
       model,
       messageReply,
+      dmReplyPlacement,
+      groupReplyPlacement,
       // Mark the messageReply value as living in the new (post-0.1.27)
       // semantic — `text` now means real plain text, not the lightweight
       // markdown card. Set unconditionally on every submit so a user who
@@ -1939,6 +1951,8 @@ async function submitConfig(ctx: CommandContext): Promise<void> {
     log.info('command', 'config-saved', {
       mode,
       messageReply,
+      dmReplyPlacement,
+      groupReplyPlacement,
       showToolCalls,
       cotMessages,
       maxConcurrentRuns,
@@ -1958,6 +1972,8 @@ async function submitConfig(ctx: CommandContext): Promise<void> {
         mode,
         model: modelSelection,
         messageReply,
+        dmReplyPlacement,
+        groupReplyPlacement,
         showToolCalls,
         cotMessages,
         maxConcurrentRuns,

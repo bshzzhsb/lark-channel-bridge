@@ -7,6 +7,7 @@ import { resolveWorkingDirectory } from '../policy/workspace';
 import type { SessionCatalogIdentity } from '../session/catalog';
 import type { WorkspaceStore } from '../workspace/store';
 import type { ChatMode } from './chat-mode-cache';
+import { policyThreadId } from './topic-scope';
 
 export async function commandSessionCatalogIdentity(input: {
   msg: NormalizedMessage;
@@ -25,12 +26,13 @@ export async function commandSessionCatalogIdentity(input: {
     input.controls.profileConfig.agentKind === 'codex'
       ? codexCapability(input.controls.profileConfig)
       : claudeCapability(input.controls.profileConfig);
+  const threadId = policyThreadId(input.scope, input.msg.chatId, input.msg.threadId);
   const policy = evaluateRunPolicy({
     scope: {
       source: 'im',
       chatId: input.msg.chatId,
       actorId: input.msg.senderId,
-      ...(input.mode === 'topic' && input.msg.threadId ? { threadId: input.msg.threadId } : {}),
+      ...(threadId ? { threadId } : {}),
     },
     attachments: [],
     prompt: '',

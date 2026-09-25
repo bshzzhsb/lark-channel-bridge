@@ -13,7 +13,8 @@ import type { SessionCatalog } from '../session/catalog';
 import type { SessionStore } from '../session/store';
 import type { WorkspaceStore } from '../workspace/store';
 import { commandSessionCatalogIdentity } from '../bot/session-catalog-identity';
-import { lookupMessageThreadId } from '../bot/thread-id';
+import { lookupMessageThreadContext } from '../bot/thread-id';
+import { existingRootTopicScope } from '../bot/topic-scope';
 
 /** Marker key on a button's value object that flags the cardAction as
  * a callback that should be forwarded back to the agent instead
@@ -58,12 +59,11 @@ export async function handleCardAction(deps: CardDispatchDeps): Promise<void> {
     | undefined;
   const formValue = raw?.action?.form_value;
 
-  // Resolve the click's session scope. For topic groups we need to know
-  // the message's thread_id so the action targets the right topic's
-  // session — look up the carrier message (the card lives on it) once.
+  // Resolve the click's session scope from the carrier card message. Cards
+  // in DMs and ordinary groups can also be inside bot-created topics.
   // Done before the access check so we know the chat mode (p2p vs group)
   // and can skip the chat allowlist for DMs.
-  const { scope, threadId, mode } = await resolveScope(deps);
+  const { scope, threadId, mode, inTopic } = await resolveScope(deps);
 
   const accessDecision =
     mode === 'p2p'
@@ -88,13 +88,14 @@ export async function handleCardAction(deps: CardDispatchDeps): Promise<void> {
       return;
     }
     log.info('cardAction', 'cmd', { cmd, scope });
-    const msg = makeFakeMsg(deps.evt, threadId);
+    const msg = makeFakeMsg(deps.evt, threadId, mode);
 
     const ctx: CommandContext = {
       channel: deps.channel,
       msg,
       scope,
       chatMode: mode,
+      replyInThread: inTopic,
       sessions: deps.sessions,
       sessionCatalog: deps.sessionCatalog,
       sessionCatalogIdentity: await commandSessionCatalogIdentity({
@@ -143,21 +144,21 @@ export async function handleCardAction(deps: CardDispatchDeps): Promise<void> {
 
 async function resolveScope(
   deps: CardDispatchDeps,
-): Promise<{ scope: string; threadId: string | undefined; mode: 'p2p' | 'group' | 'topic' }> {
+): Promise<{ scope: string; threadId: string | undefined; mode: 'p2p' | 'group' | 'topic'; inTopic: boolean }> {
   const chatId = deps.evt.chatId;
-  const mode = await deps.chatModeCache.resolve(deps.channel, chatId);
-  if (mode !== 'topic') {
-    return { scope: chatId, threadId: undefined, mode };
-  }
-  // Topic group — need the carrier message's thread_id to compose scope.
-  // One API call per click; could cache by messageId if it ever becomes hot.
-  const threadId = await lookupMessageThreadId(deps.channel, deps.evt.messageId);
-  if (!threadId) {
-    // Fall back to plain chatId. Better to land in the chat's "default"
-    // scope than fail the click silently.
-    return { scope: chatId, threadId: undefined, mode };
-  }
-  return { scope: `${chatId}:${threadId}`, threadId, mode };
+  const resolvedMode = await deps.chatModeCache.resolve(deps.channel, chatId);
+  // A card in an ordinary group or DM may live inside a newly created topic.
+  const { threadId, rootId } = await lookupMessageThreadContext(deps.channel, deps.evt.messageId);
+  const rootScope = existingRootTopicScope({
+    chatId,
+    rootId,
+    sessions: deps.sessions,
+    sessionCatalog: deps.sessionCatalog,
+  });
+  const inTopic = Boolean(threadId || rootScope);
+  const mode = inTopic && resolvedMode !== 'p2p' ? 'topic' : resolvedMode;
+  const scope = rootScope ?? (threadId ? `${chatId}:${threadId}` : chatId);
+  return { scope, threadId, mode, inTopic };
 }
 
 function forwardToAgent(
@@ -252,11 +253,12 @@ function composeArgs(sub: string, payload: Record<string, unknown>): string {
 function makeFakeMsg(
   evt: CardActionEvent,
   threadId: string | undefined,
+  mode: 'p2p' | 'group' | 'topic',
 ): NormalizedMessage {
   return {
     messageId: evt.messageId,
     chatId: evt.chatId,
-    chatType: 'p2p',
+    chatType: mode === 'p2p' ? 'p2p' : 'group',
     threadId,
     senderId: evt.operator.openId,
     senderName: evt.operator.name,

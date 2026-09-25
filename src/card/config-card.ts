@@ -1,7 +1,7 @@
 import { modelLabel, supportedModels } from '../agent/models';
 import type { KnownChat } from '../bot/lark-info';
 import type { AgentKind, LarkCliIdentityPreset, ProfileMode } from '../config/profile-schema';
-import type { CotMessagesMode, MessageReplyMode } from '../config/schema';
+import type { CotMessagesMode, MessageReplyMode, ReplyPlacement } from '../config/schema';
 
 export interface ConfigFormOpts {
   /** Profile's agent kind — decides which model catalog the picker shows. */
@@ -11,6 +11,8 @@ export interface ConfigFormOpts {
   /** Current model selection (a value from {@link supportedModels}). */
   model: string;
   messageReply: MessageReplyMode;
+  dmReplyPlacement: ReplyPlacement;
+  groupReplyPlacement: ReplyPlacement;
   showToolCalls: boolean;
   cotMessages: CotMessagesMode;
   maxConcurrentRuns: number;
@@ -190,6 +192,26 @@ export function configFormCard(opts: ConfigFormOpts): object {
                 { text: { tag: 'plain_text', content: '消息卡片(默认)' }, value: 'markdown' },
               ],
             },
+            { tag: 'markdown', content: '\n**私聊回复位置**' },
+            {
+              tag: 'select_static',
+              name: 'dm_reply_placement',
+              initial_option: opts.dmReplyPlacement,
+              options: [
+                { text: { tag: 'plain_text', content: '对话回复(默认)' }, value: 'conversation' },
+                { text: { tag: 'plain_text', content: '话题回复' }, value: 'thread' },
+              ],
+            },
+            { tag: 'markdown', content: '\n**普通群回复位置**\n_话题内始终回复到当前话题_' },
+            {
+              tag: 'select_static',
+              name: 'group_reply_placement',
+              initial_option: opts.groupReplyPlacement,
+              options: [
+                { text: { tag: 'plain_text', content: '对话回复' }, value: 'conversation' },
+                { text: { tag: 'plain_text', content: '话题回复(默认)' }, value: 'thread' },
+              ],
+            },
             {
               tag: 'markdown',
               content:
@@ -350,6 +372,8 @@ export function configSavedCard(opts: ConfigFormOpts): object {
             `**运行模式**:\`${opts.mode === 'team' ? '团队版' : '个人版'}\`\n` +
             `**模型**:\`${modelLabel(opts.agentKind, opts.model)}\`\n` +
             `**消息回复方式**:${replyLabel}\n` +
+            `**私聊回复位置**:${opts.dmReplyPlacement === 'thread' ? '话题回复' : '对话回复'}\n` +
+            `**普通群回复位置**:${opts.groupReplyPlacement === 'thread' ? '话题回复' : '对话回复'}\n` +
             `**工具调用显示**:\`${opts.showToolCalls ? 'show' : 'hide'}\`\n` +
             `**COT 过程消息**:\`${cotLabel}\`\n` +
             `**并发上限**:\`${opts.maxConcurrentRuns}\`\n` +

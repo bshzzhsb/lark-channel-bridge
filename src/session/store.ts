@@ -4,6 +4,8 @@ import { log } from '../core/logger';
 import { writeFileAtomic } from '../platform/atomic-write';
 
 export interface SessionEntry {
+  /** This scope belongs to a topic opened by replying to its root message. */
+  topicRoot?: boolean;
   /** May be absent if the entry was created by /timeout before any run
    * recorded a session id. Treat absence as "no resumable session". */
   sessionId?: string;
@@ -43,9 +45,11 @@ export class SessionStore {
         const cwd = typeof entry.cwd === 'string' ? entry.cwd : undefined;
         const idleTimeoutMinutes =
           typeof entry.idleTimeoutMinutes === 'number' ? entry.idleTimeoutMinutes : undefined;
+        const topicRoot = entry.topicRoot === true;
         const hasSession = sessionId !== undefined && cwd !== undefined;
-        if (!hasSession && idleTimeoutMinutes === undefined) continue;
+        if (!hasSession && idleTimeoutMinutes === undefined && !topicRoot) continue;
         this.data[chatId] = {
+          ...(topicRoot ? { topicRoot: true } : {}),
           ...(sessionId !== undefined ? { sessionId } : {}),
           ...(cwd !== undefined ? { cwd } : {}),
           updatedAt: entry.updatedAt,
@@ -74,11 +78,19 @@ export class SessionStore {
     return this.data[chatId];
   }
 
+  markTopicRoot(scope: string): void {
+    const prev = this.data[scope];
+    if (prev?.topicRoot) return;
+    this.data[scope] = { ...(prev ?? {}), topicRoot: true, updatedAt: Date.now() };
+    this.schedulePersist();
+  }
+
   set(chatId: string, sessionId: string, cwd: string): void {
     // Preserve idleTimeoutMinutes across run starts — it's a per-scope
     // preference, not per-run-instance state. /new (clear) wipes it.
     const prev = this.data[chatId];
     this.data[chatId] = {
+      ...(prev?.topicRoot ? { topicRoot: true } : {}),
       sessionId,
       cwd,
       updatedAt: Date.now(),
@@ -92,8 +104,9 @@ export class SessionStore {
   clear(chatId: string): void {
     const prev = this.data[chatId];
     if (!prev) return;
-    if (prev.idleTimeoutMinutes !== undefined) {
+    if (prev.idleTimeoutMinutes !== undefined || prev.topicRoot) {
       this.data[chatId] = {
+        ...(prev.topicRoot ? { topicRoot: true } : {}),
         idleTimeoutMinutes: prev.idleTimeoutMinutes,
         updatedAt: Date.now(),
       };

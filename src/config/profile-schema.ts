@@ -2,8 +2,10 @@ import type {
   AppCredentials,
   AppPreferences,
   MessageReplyMode,
+  ReplyPlacement,
   SecretsConfig,
 } from './schema';
+import { isReplyPlacement } from './schema';
 import {
   normalizePermissions,
   permissionsToLegacySandbox,
@@ -323,15 +325,23 @@ function normalizePreferences(
     access: _access,
     requireMentionInGroup: _mention,
     messageReply,
+    dmReplyPlacement,
+    groupReplyPlacement,
     ...rest
   } = preferences ?? {};
   if (messageReply !== undefined && isMessageReply(messageReply)) {
     return {
       ...rest,
       messageReply,
+      ...(isReplyPlacement(dmReplyPlacement) ? { dmReplyPlacement } : {}),
+      ...(isReplyPlacement(groupReplyPlacement) ? { groupReplyPlacement } : {}),
     };
   }
-  return rest;
+  return {
+    ...rest,
+    ...(isReplyPlacement(dmReplyPlacement) ? { dmReplyPlacement } : {}),
+    ...(isReplyPlacement(groupReplyPlacement) ? { groupReplyPlacement } : {}),
+  };
 }
 
 function isMessageReply(value: unknown): value is MessageReplyMode {

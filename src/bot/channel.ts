@@ -64,7 +64,9 @@ import { startKeepalive } from './keepalive';
 import { PendingQueue } from './pending-queue';
 import { ProcessPool } from './process-pool';
 import { fetchQuotedContext, fetchTopicContext, type QuotedContext } from './quote';
-import { lookupMessageThreadId } from './thread-id';
+import { lookupMessageThreadContext } from './thread-id';
+import { replyOptions } from './reply-placement';
+import { existingRootTopicScope, policyThreadId, rootTopicScope } from './topic-scope';
 import { addWorkingReaction, removeReaction } from './reaction';
 import { fetchKnownChats } from './lark-info';
 import type { AppPaths } from '../config/app-paths';
@@ -281,6 +283,7 @@ export async function startChannel(deps: StartChannelDeps): Promise<BridgeChanne
     const firstMsg = batch[0];
     if (!firstMsg) return;
     pending.block(scope);
+    let runScope = scope;
     void withTrace({ chatId: firstMsg.chatId }, async () => {
       log.info('flush', 'start', {
         scope,
@@ -295,14 +298,25 @@ export async function startChannel(deps: StartChannelDeps): Promise<BridgeChanne
         // the chat info API/cache, while message events already carry threadId.
         // Treat threadId as authoritative for IM messages so scope and replies
         // stay isolated per topic.
-        const mode = firstMsg.threadId ? 'topic' : resolvedMode;
-        if (firstMsg.threadId && resolvedMode !== 'topic') {
+        const mode = firstMsg.threadId || scope.startsWith(`${firstMsg.chatId}:root:`)
+          ? 'topic' : resolvedMode;
+        if (firstMsg.chatType !== 'p2p' && firstMsg.threadId && resolvedMode !== 'topic') {
           chatModeCache.invalidate(firstMsg.chatId);
           logThreadModeOverride({
             chatId: firstMsg.chatId,
             resolvedMode,
             threadId: firstMsg.threadId,
           });
+        }
+        const lastMsg = batch[batch.length - 1]!;
+        runScope = scope.startsWith(`${firstMsg.chatId}:root:`)
+          ? scope
+          : !firstMsg.threadId && replyOptions(controls.cfg, lastMsg, mode === 'topic').replyInThread
+          ? rootTopicScope(firstMsg.chatId, lastMsg.messageId)
+          : scope;
+        if (runScope !== scope) {
+          sessions.markTopicRoot(runScope);
+          pending.block(runScope);
         }
         await runAgentBatch({
           channel,
@@ -317,12 +331,13 @@ export async function startChannel(deps: StartChannelDeps): Promise<BridgeChanne
           callbackAuth,
           activePolicyFingerprints,
           lastRunModelByScope,
-          scope,
+          scope: runScope,
           mode,
         });
       } catch (err) {
         log.fail('flush', err);
       } finally {
+        if (runScope !== scope) pending.unblock(runScope);
         pending.unblock(scope);
         log.info('flush', 'end');
       }
@@ -562,18 +577,31 @@ function startKnownChatsRefreshTimer(
   };
 }
 
-async function sendNonAllowedGroupHint(
+function sendNonAllowedGroupHint(
   channel: LarkChannel,
-  chatId: string,
-  replyToMessageId: string,
+  msg: NormalizedMessage,
+  cfg: AppConfig,
+  topicGroup: boolean,
 ): Promise<void> {
   const text =
     '当前群尚未加入响应列表，所以 bot 不会处理消息。\n' +
     'Bot owner/管理员可在本群发 /invite group 加入白名单。';
+  return sendHint(channel, msg, cfg, topicGroup, text);
+}
+
+async function sendHint(
+  channel: LarkChannel,
+  msg: NormalizedMessage,
+  cfg: AppConfig,
+  topicGroup: boolean,
+  text: string,
+): Promise<void> {
+  const options = replyOptions(cfg, msg, topicGroup);
   try {
-    await channel.send(chatId, { text }, { replyTo: replyToMessageId });
-  } catch {
-    await channel.send(chatId, { text });
+    await channel.send(msg.chatId, { text }, options);
+  } catch (err) {
+    if (options.replyInThread) throw err;
+    await channel.send(msg.chatId, { text });
   }
 }
 
@@ -596,19 +624,16 @@ function isForwardFetchFailed(msg: NormalizedMessage): boolean {
   );
 }
 
-async function sendForwardFetchFailedHint(
+function sendForwardFetchFailedHint(
   channel: LarkChannel,
-  chatId: string,
-  replyToMessageId: string,
+  msg: NormalizedMessage,
+  cfg: AppConfig,
+  topicGroup: boolean,
 ): Promise<void> {
   const text =
     '这条合并转发的内容没能从飞书拉取到（上游超时/网络抖动，已自动重试仍失败），' +
     '所以我没收到里面的消息。麻烦稍后重新转发一次。';
-  try {
-    await channel.send(chatId, { text }, { replyTo: replyToMessageId });
-  } catch {
-    await channel.send(chatId, { text });
-  }
+  return sendHint(channel, msg, cfg, topicGroup, text);
 }
 
 interface IntakeDeps {
@@ -653,16 +678,17 @@ async function intakeMessage(deps: IntakeDeps): Promise<void> {
   // Resolve scope (and underlying chat mode) once at intake — every
   // downstream consumer keys off these.
   const resolvedMode = await chatModeCache.resolve(channel, msg.chatId);
-  // Feishu delivers a sizable fraction of topic-group message events without a
-  // `thread_id` (notably the message that opens a new topic). We route topic
-  // replies (`replyInThread`) and isolate per-topic session scope off it, so a
-  // missing one makes the reply escape into a brand-new topic AND collapses the
-  // scope to the chat level. When getChatMode says this is a topic group but
-  // the event dropped `thread_id`, backfill it from the raw message — the same
-  // recovery the card-click path uses.
+  // Message events can omit thread_id, including in topic groups and DMs.
+  // Recover it from the raw message before choosing the session scope and
+  // reply placement. Skip this lookup for group messages we will ignore.
   let threadId = msg.threadId;
-  if (!threadId && resolvedMode === 'topic') {
-    threadId = await lookupMessageThreadId(channel, msg.messageId);
+  let rootId = msg.rootId;
+  const mayRespond = msg.chatType === 'p2p' || msg.mentionedBot
+    || !requireMentionForChat(controls.profileConfig, controls.cfg, msg.chatId);
+  if (!threadId && mayRespond) {
+    const context = await lookupMessageThreadContext(channel, msg.messageId);
+    threadId = context.threadId;
+    rootId ??= context.rootId;
     if (threadId) {
       log.info('intake', 'thread-id-backfilled', {
         chatId: msg.chatId,
@@ -674,12 +700,14 @@ async function intakeMessage(deps: IntakeDeps): Promise<void> {
   // Carry the (possibly backfilled) threadId on the message so the batched
   // flush — which reads `firstMsg.threadId` for reply routing and topic scope —
   // sees it.
-  const emsg: NormalizedMessage = threadId === msg.threadId ? msg : { ...msg, threadId };
+  const emsg: NormalizedMessage = threadId === msg.threadId && rootId === msg.rootId
+    ? msg : { ...msg, threadId, rootId };
   // Some groups are converted into topic groups after creation. In that state
   // getChatMode can lag behind the message event shape, so threadId is the
   // stronger signal for topic-scoped sessions and reply routing.
-  const chatMode = threadId ? 'topic' : resolvedMode;
-  if (threadId && resolvedMode !== 'topic') {
+  const rootScope = existingRootTopicScope({ chatId: msg.chatId, rootId, sessions, sessionCatalog });
+  const chatMode = threadId || rootScope ? 'topic' : resolvedMode;
+  if (msg.chatType !== 'p2p' && threadId && resolvedMode !== 'topic') {
     chatModeCache.invalidate(msg.chatId);
     logThreadModeOverride({
       chatId: msg.chatId,
@@ -687,9 +715,7 @@ async function intakeMessage(deps: IntakeDeps): Promise<void> {
       threadId,
     });
   }
-  const scope = chatMode === 'topic' && threadId
-    ? `${msg.chatId}:${threadId}`
-    : msg.chatId;
+  const scope = rootScope ?? (threadId ? `${msg.chatId}:${threadId}` : msg.chatId);
   log.info('intake', 'enter', {
     scope,
     chatType: msg.chatType,
@@ -713,7 +739,7 @@ async function intakeMessage(deps: IntakeDeps): Promise<void> {
       reason: accessDecision.reason,
     });
     if (msg.chatType !== 'p2p' && accessDecision.reason === 'denied-chat' && msg.mentionedBot) {
-      void sendNonAllowedGroupHint(channel, msg.chatId, msg.messageId).catch((err) =>
+      void sendNonAllowedGroupHint(channel, emsg, controls.cfg, chatMode === 'topic').catch((err) =>
         log.warn('intake', 'non-allowed-hint-failed', { err: String(err) }),
       );
     }
@@ -749,7 +775,7 @@ async function intakeMessage(deps: IntakeDeps): Promise<void> {
       msgId: emsg.messageId,
       chatType: emsg.chatType,
     });
-    await sendForwardFetchFailedHint(channel, emsg.chatId, emsg.messageId).catch((err) =>
+    await sendForwardFetchFailedHint(channel, emsg, controls.cfg, chatMode === 'topic').catch((err) =>
       log.warn('intake', 'forward-fetch-failed-hint-failed', { err: String(err) }),
     );
     return;
@@ -828,6 +854,10 @@ async function runAgentBatch(deps: RunBatchDeps): Promise<void> {
 
   const chatId = firstMsg.chatId;
   const threadId = firstMsg.threadId;
+  if (scope.startsWith(`${chatId}:root:`) && !workspaces.cwdFor(scope)) {
+    const inheritedCwd = workspaces.cwdFor(chatId);
+    if (inheritedCwd) workspaces.setCwd(scope, inheritedCwd);
+  }
 
   const resourceItems = batch.flatMap((m) =>
     m.resources.map((r) => ({ messageId: m.messageId, resource: r })),
@@ -878,7 +908,9 @@ async function runAgentBatch(deps: RunBatchDeps): Promise<void> {
   // the user is pointing at. An already-engaged topic keeps that history in its
   // resumed session, so we skip the fetch there.
   let topicContext: QuotedContext[] = [];
-  if (mode === 'topic' && threadId && !sessions.getRaw(scope)) {
+  const hasTopicSession = Boolean(sessions.getRaw(scope)?.sessionId
+    || sessionCatalog?.entries().some((entry) => entry.scopeId === scope && entry.status === 'active'));
+  if (mode === 'topic' && threadId && !hasTopicSession) {
     const exclude = new Set([...batchIds, ...quoteTargets]);
     topicContext = await fetchTopicContext(channel, threadId, {
       maxMessages: 40,
@@ -929,13 +961,9 @@ async function runAgentBatch(deps: RunBatchDeps): Promise<void> {
     ...(modelSwitched ? { modelSwitchedTo: modelSelection } : {}),
   });
 
-  // For topic groups: thread the reply so it lands in the same topic as the
-  // user's message. Otherwise the SDK posts at top level and the user's
-  // topic discussion breaks visually.
-  const sendOpts = {
-    replyTo: lastMsg.messageId,
-    ...(mode === 'topic' && threadId ? { replyInThread: true } : {}),
-  };
+  // Existing topics always stay threaded; ordinary group and DM messages
+  // follow their independent profile preferences.
+  const sendOpts = replyOptions(controls.cfg, lastMsg, mode === 'topic');
   log.info('flush', 'reply-target', {
     scope,
     mode,
@@ -953,7 +981,8 @@ async function runAgentBatch(deps: RunBatchDeps): Promise<void> {
     source: 'im',
     chatId,
     actorId: firstMsg.senderId,
-    ...(threadId ? { threadId } : {}),
+    ...(policyThreadId(scope, chatId, threadId)
+      ? { threadId: policyThreadId(scope, chatId, threadId) } : {}),
   };
   const capability =
     controls.profileConfig.agentKind === 'codex'
@@ -1078,11 +1107,10 @@ async function runAgentBatch(deps: RunBatchDeps): Promise<void> {
       const cotPublisher = new CotPublisher({
         client: cotClient,
         chatId,
-        // The CoT bubble follows this origin message's thread. In a topic the
-        // triggering message is itself in-topic, so the bubble lands in the
-        // topic; message_cot has no thread_id receive type, so origin is the
-        // only lever we have (see CotClient.create).
+        // COT uses the same origin and reply_in_thread decision as the final
+        // reply, so the two messages appear in the same place.
         originMessageId: lastMsg.messageId,
+        replyInThread: sendOpts.replyInThread === true,
         runId: execution.runId,
         scope,
         inputPreview: lastMsg.content,
