@@ -118,7 +118,7 @@ describe('topic message quote handling', () => {
     expect(h.channel.streams[1]?.options).toMatchObject({ replyInThread: true });
   });
 
-  it('does not quote the topic root when a user directly mentions the bot inside the topic', async () => {
+  it('includes the topic root when a user directly mentions the bot for the first time', async () => {
     const h = await createHarness();
 
     await startTestBridge(h);
@@ -138,8 +138,11 @@ describe('topic message quote handling', () => {
     const prompt = h.agent.runOptions[0]?.prompt ?? '';
     expect(prompt).toContain('"threadId":"omt_topic"');
     expect(prompt).not.toContain('<quoted_messages>');
-    expect(prompt).not.toContain('topic root content');
-    expect(h.channel.fetchRawMessage).not.toHaveBeenCalled();
+    expect(prompt).toContain('topic root content');
+    expect(h.channel.fetchRawMessage).toHaveBeenCalledWith(
+      'om_topic_root',
+      expect.objectContaining({ cardContentType: 'user_card_content' }),
+    );
   });
 
   it('treats messages with threadId as topic messages even when chat mode cache says group', async () => {
@@ -169,7 +172,11 @@ describe('topic message quote handling', () => {
     const prompt = h.agent.runOptions[0]?.prompt ?? '';
     expect(prompt).toContain('"threadId":"omt_converted_topic"');
     expect(prompt).not.toContain('<quoted_messages>');
-    expect(h.channel.fetchRawMessage).not.toHaveBeenCalled();
+    expect(prompt).toContain('topic root content');
+    expect(h.channel.fetchRawMessage).toHaveBeenCalledWith(
+      'om_topic_root',
+      expect.objectContaining({ cardContentType: 'user_card_content' }),
+    );
     await waitFor(() => h.channel.streams.length === 1);
     expect(h.channel.streams[0]?.options).toMatchObject({
       replyTo: 'om_converted_topic',
@@ -297,18 +304,16 @@ describe('topic message quote handling', () => {
   it('pulls in the topic upstream messages when first engaged in a topic', async () => {
     // The topic root holds the real question and never @-mentioned the bot; the
     // bot only gets pulled in by a later "@Bridge 看下这个" reply. On a fresh
-    // topic session we fetch the thread so the agent isn't blind to the root.
+    // topic session we fetch the root by ID and the thread history separately.
     const h = await createHarness({
       chatMode: 'topic',
+      quotedMessages: {
+        om_topic_root: 'the real upstream question',
+      },
+      rawRootIds: {
+        om_at_in_topic: 'om_topic_root',
+      },
       threadMessages: [
-        {
-          message_id: 'om_topic_root',
-          msg_type: 'text',
-          body: { content: JSON.stringify({ text: 'the real upstream question' }) },
-          sender: { id: 'ou_asker', sender_type: 'user' },
-          create_time: '1760000000000',
-          thread_id: 'omt_topic',
-        },
         {
           // the triggering message itself — must be excluded, not echoed back
           message_id: 'om_at_in_topic',
@@ -326,13 +331,19 @@ describe('topic message quote handling', () => {
     await h.channel.handlers.message?.(
       message({
         messageId: 'om_at_in_topic',
-        rootId: 'om_topic_root',
+        // Model a receive event that carries thread_id but omits root_id.
+        rootId: undefined,
         parentId: 'om_topic_root',
         threadId: 'omt_topic',
         content: '@Bridge 看下这个',
       }),
     );
     await waitFor(() => h.agent.runOptions.length === 1);
+    expect(h.channel.fetchRawMessage).toHaveBeenCalledWith('om_at_in_topic');
+    expect(h.channel.fetchRawMessage).toHaveBeenCalledWith(
+      'om_topic_root',
+      expect.objectContaining({ cardContentType: 'user_card_content' }),
+    );
 
     expect(h.channel.rawClient.im.v1.message.list).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -349,6 +360,170 @@ describe('topic message quote handling', () => {
     // it isn't duplicated inside topic_context.
     const topicBlock = prompt.slice(prompt.indexOf('<topic_context>'), prompt.indexOf('</topic_context>'));
     expect(topicBlock).not.toContain('om_at_in_topic');
+  });
+
+  it('deduplicates the root when the thread list also returns it', async () => {
+    const h = await createHarness({
+      threadMessages: [
+        {
+          message_id: 'om_topic_root',
+          msg_type: 'text',
+          body: { content: JSON.stringify({ text: 'root returned by list' }) },
+          sender: { id: 'ou_asker', sender_type: 'user' },
+          create_time: '1760000000000',
+          thread_id: 'omt_topic',
+        },
+        {
+          message_id: 'om_at_in_topic',
+          msg_type: 'text',
+          body: { content: JSON.stringify({ text: '@Bridge 看下这个' }) },
+          sender: { id: 'ou_user', sender_type: 'user' },
+          create_time: '1760000001000',
+          thread_id: 'omt_topic',
+        },
+      ],
+      quotedMessages: { om_topic_root: 'root returned by list' },
+    });
+
+    await startTestBridge(h);
+    await h.channel.handlers.message?.(message({
+      messageId: 'om_at_in_topic',
+      rootId: 'om_topic_root',
+      parentId: 'om_topic_root',
+      threadId: 'omt_topic',
+      content: '@Bridge 看下这个',
+    }));
+    await waitFor(() => h.agent.runOptions.length === 1);
+
+    const prompt = h.agent.runOptions[0]?.prompt ?? '';
+    const topicMessages = readPromptSection<Array<{ messageId: string; content: string }>>(prompt, 'topic_context');
+    expect(topicMessages.filter((item) => item.messageId === 'om_topic_root')).toHaveLength(1);
+    expect(topicMessages.filter((item) => item.content === 'root returned by list')).toHaveLength(1);
+  });
+
+  it('uses the root from thread history if its direct fetch fails', async () => {
+    const h = await createHarness({
+      rawMessageFailures: ['om_topic_root'],
+      threadMessages: [
+        {
+          message_id: 'om_topic_root',
+          msg_type: 'text',
+          body: { content: JSON.stringify({ text: 'root fallback content' }) },
+          sender: { id: 'ou_asker', sender_type: 'user' },
+          create_time: '1760000000000',
+          thread_id: 'omt_topic',
+        },
+        {
+          message_id: 'om_prior_reply',
+          msg_type: 'text',
+          body: { content: JSON.stringify({ text: 'prior reply context' }) },
+          sender: { id: 'ou_user', sender_type: 'user' },
+          create_time: '1760000000500',
+          thread_id: 'omt_topic',
+        },
+        {
+          message_id: 'om_at_in_topic',
+          msg_type: 'text',
+          body: { content: JSON.stringify({ text: '@Bridge 看下这个' }) },
+          sender: { id: 'ou_user', sender_type: 'user' },
+          create_time: '1760000001000',
+          thread_id: 'omt_topic',
+        },
+      ],
+    });
+
+    await startTestBridge(h);
+    await h.channel.handlers.message?.(message({
+      messageId: 'om_at_in_topic',
+      rootId: 'om_topic_root',
+      parentId: 'om_topic_root',
+      threadId: 'omt_topic',
+      content: '@Bridge 看下这个',
+    }));
+    await waitFor(() => h.agent.runOptions.length === 1);
+
+    const topicMessages = readPromptSection<Array<{ messageId: string; content: string }>>(
+      h.agent.runOptions[0]?.prompt ?? '',
+      'topic_context',
+    );
+    expect(topicMessages[0]).toMatchObject({ messageId: 'om_topic_root', content: 'root fallback content' });
+    expect(topicMessages.some((item) => item.content === 'prior reply context')).toBe(true);
+  });
+
+  it('keeps the root plus up to 50 other prior topic messages', async () => {
+    const history = Array.from({ length: 52 }, (_, index) => ({
+      message_id: `om_history_${index}`,
+      msg_type: 'text',
+      body: { content: JSON.stringify({ text: `history message ${index}` }) },
+      sender: { id: 'ou_user', sender_type: 'user' },
+      create_time: String(1760000000000 + index),
+      thread_id: 'omt_topic',
+    }));
+    const h = await createHarness({
+      quotedMessages: { om_topic_root: 'root context' },
+      threadMessages: [
+        ...history,
+        {
+          message_id: 'om_at_in_topic',
+          msg_type: 'text',
+          body: { content: JSON.stringify({ text: '@Bridge 看下这个' }) },
+          sender: { id: 'ou_user', sender_type: 'user' },
+          create_time: '1760000001000',
+          thread_id: 'omt_topic',
+        },
+      ],
+    });
+
+    await startTestBridge(h);
+    await h.channel.handlers.message?.(message({
+      messageId: 'om_at_in_topic',
+      rootId: 'om_topic_root',
+      parentId: 'om_topic_root',
+      threadId: 'omt_topic',
+      content: '@Bridge 看下这个',
+    }));
+    await waitFor(() => h.agent.runOptions.length === 1);
+
+    const topicMessages = readPromptSection<Array<{ messageId: string; content: string }>>(
+      h.agent.runOptions[0]?.prompt ?? '',
+      'topic_context',
+    );
+    expect(topicMessages).toHaveLength(51);
+    expect(topicMessages[0]).toMatchObject({ messageId: 'om_topic_root', content: 'root context' });
+    expect(topicMessages.some((item) => item.content === 'history message 1')).toBe(false);
+    expect(topicMessages.some((item) => item.content === 'history message 2')).toBe(true);
+    expect(topicMessages.some((item) => item.content === 'history message 51')).toBe(true);
+  });
+
+  it('continues with the available history when fetching the root fails', async () => {
+    const h = await createHarness({
+      rawMessageFailures: ['om_topic_root'],
+      threadMessages: [
+        {
+          message_id: 'om_prior_reply',
+          msg_type: 'text',
+          body: { content: JSON.stringify({ text: 'prior reply context' }) },
+          sender: { id: 'ou_user', sender_type: 'user' },
+          create_time: '1760000000000',
+          thread_id: 'omt_topic',
+        },
+      ],
+    });
+
+    await startTestBridge(h);
+    await h.channel.handlers.message?.(message({
+      messageId: 'om_at_in_topic',
+      rootId: 'om_topic_root',
+      parentId: 'om_topic_root',
+      threadId: 'omt_topic',
+      content: '@Bridge 看下这个',
+    }));
+    await waitFor(() => h.agent.runOptions.length === 1);
+
+    const prompt = h.agent.runOptions[0]?.prompt ?? '';
+    expect(prompt).toContain('prior reply context');
+    expect(prompt).toContain('@Bridge 看下这个');
+    expect(prompt).not.toContain('topic root content');
   });
 
   it('does not fetch topic context when the topic session already exists', async () => {
@@ -384,6 +559,7 @@ describe('topic message quote handling', () => {
     await waitFor(() => h.agent.runOptions.length === 1);
 
     expect(h.channel.rawClient.im.v1.message.list).not.toHaveBeenCalled();
+    expect(h.channel.fetchRawMessage).not.toHaveBeenCalled();
     const prompt = h.agent.runOptions[0]?.prompt ?? '';
     expect(prompt).not.toContain('<topic_context>');
   });
@@ -565,6 +741,8 @@ async function createHarness(options: {
   chatMode?: 'group' | 'topic';
   quotedMessages?: Record<string, string>;
   rawThreadIds?: Record<string, string>;
+  rawRootIds?: Record<string, string>;
+  rawMessageFailures?: string[];
   threadMessages?: Array<Record<string, unknown>>;
   agentEvents?: AgentEvent[];
 } = {}):Promise<{
@@ -643,6 +821,8 @@ function createFakeLarkChannel(options: {
   chatMode?: 'group' | 'topic';
   quotedMessages?: Record<string, string>;
   rawThreadIds?: Record<string, string>;
+  rawRootIds?: Record<string, string>;
+  rawMessageFailures?: string[];
   threadMessages?: Array<Record<string, unknown>>;
 } = {}):FakeLarkChannel & { handlers: MessageHandlerMap } {
   const handlers: MessageHandlerMap = {};
@@ -653,6 +833,7 @@ function createFakeLarkChannel(options: {
     om_topic_root: 'topic root content',
   };
   const rawThreadIds = options.rawThreadIds ?? {};
+  const rawRootIds = options.rawRootIds ?? {};
   const threadMessages = options.threadMessages ?? [];
   return {
     handlers,
@@ -664,7 +845,14 @@ function createFakeLarkChannel(options: {
       im: {
         v1: {
           message: {
-            list: vi.fn(async () => ({ data: { items: threadMessages, has_more: false } })),
+            list: vi.fn(async (request?: { params?: { sort_type?: string } }) => ({
+              data: {
+                items: request?.params?.sort_type === 'ByCreateTimeDesc'
+                  ? [...threadMessages].reverse()
+                  : threadMessages,
+                has_more: false,
+              },
+            })),
           },
           messageReaction: {
             create: vi.fn(async () => ({ data: { reaction_id: 'reaction_1' } })),
@@ -675,20 +863,26 @@ function createFakeLarkChannel(options: {
     },
     getAppInfo: vi.fn(async () => ({ ownerId: 'ou_owner' })),
     listChats: vi.fn(async () => []),
-    fetchRawMessage: vi.fn(async (messageId: string) => [
-      {
-        message_id: messageId,
-        msg_type: 'text',
-        body: {
-          content: JSON.stringify({
-            text: quotedMessages[messageId] ?? 'quoted content',
-          }),
+    fetchRawMessage: vi.fn(async (messageId: string) => {
+      if (options.rawMessageFailures?.includes(messageId)) {
+        throw new Error(`failed to fetch ${messageId}`);
+      }
+      return [
+        {
+          message_id: messageId,
+          msg_type: 'text',
+          body: {
+            content: JSON.stringify({
+              text: quotedMessages[messageId] ?? 'quoted content',
+            }),
+          },
+          create_time: '1760000000000',
+          sender: { id: 'ou_quote_sender' },
+          ...(rawThreadIds[messageId] ? { thread_id: rawThreadIds[messageId] } : {}),
+          ...(rawRootIds[messageId] ? { root_id: rawRootIds[messageId] } : {}),
         },
-        create_time: '1760000000000',
-        sender: { id: 'ou_quote_sender' },
-        ...(rawThreadIds[messageId] ? { thread_id: rawThreadIds[messageId] } : {}),
-      },
-    ]),
+      ];
+    }),
     on(nextHandlers) {
       Object.assign(handlers, nextHandlers);
     },
@@ -731,7 +925,7 @@ function createControls(profileConfig: ReturnType<typeof createDefaultProfileCon
 
 function message(input: {
   messageId: string;
-  rootId: string;
+  rootId?: string;
   parentId: string;
   threadId?: string;
   chatType?: 'p2p' | 'group';
@@ -757,7 +951,7 @@ function message(input: {
         : [{ key: '@_user_1', openId: 'ou_human', name: '同事', isBot: false }]),
     mentionAll: false,
     mentionedBot,
-    rootId: input.rootId,
+    ...(input.rootId ? { rootId: input.rootId } : {}),
     parentId: input.parentId,
     ...(input.threadId ? { threadId: input.threadId } : {}),
     replyToMessageId: input.parentId,
@@ -780,4 +974,10 @@ async function waitFor(predicate: () => boolean, timeoutMs = 1500): Promise<void
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
   throw new Error('timed out waiting for async work');
+}
+
+function readPromptSection<T>(prompt: string, tag: string): T {
+  const match = prompt.match(new RegExp(`<${tag}>\\n([\\s\\S]*?)\\n</${tag}>`));
+  if (!match?.[1]) throw new Error(`missing <${tag}> prompt section`);
+  return JSON.parse(match[1]) as T;
 }

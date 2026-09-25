@@ -678,22 +678,30 @@ async function intakeMessage(deps: IntakeDeps): Promise<void> {
   // Resolve scope (and underlying chat mode) once at intake — every
   // downstream consumer keys off these.
   const resolvedMode = await chatModeCache.resolve(channel, msg.chatId);
-  // Message events can omit thread_id, including in topic groups and DMs.
-  // Recover it from the raw message before choosing the session scope and
-  // reply placement. Skip this lookup for group messages we will ignore.
+  // Message events can omit thread_id / root_id, including in topic groups
+  // and DMs. Recover them from the raw message before choosing the session
+  // scope, reply placement, and first-engagement topic context. Skip this
+  // lookup for group messages we will ignore.
   let threadId = msg.threadId;
   let rootId = msg.rootId;
   const mayRespond = msg.chatType === 'p2p' || msg.mentionedBot
     || !requireMentionForChat(controls.profileConfig, controls.cfg, msg.chatId);
-  if (!threadId && mayRespond) {
+  if ((!threadId || !rootId) && mayRespond) {
     const context = await lookupMessageThreadContext(channel, msg.messageId);
-    threadId = context.threadId;
+    threadId ??= context.threadId;
     rootId ??= context.rootId;
-    if (threadId) {
+    if (!msg.threadId && threadId) {
       log.info('intake', 'thread-id-backfilled', {
         chatId: msg.chatId,
         msgId: msg.messageId,
         threadId,
+      });
+    }
+    if (!msg.rootId && rootId) {
+      log.info('intake', 'thread-root-backfilled', {
+        chatId: msg.chatId,
+        msgId: msg.messageId,
+        rootId,
       });
     }
   }
@@ -911,9 +919,12 @@ async function runAgentBatch(deps: RunBatchDeps): Promise<void> {
   const hasTopicSession = Boolean(sessions.getRaw(scope)?.sessionId
     || sessionCatalog?.entries().some((entry) => entry.scopeId === scope && entry.status === 'active'));
   if (mode === 'topic' && threadId && !hasTopicSession) {
-    const exclude = new Set([...batchIds, ...quoteTargets]);
+    const exclude = new Set(batchIds);
+    for (const quote of quotes) exclude.add(quote.messageId);
+    const rootMessageId = batch.find((m) => Boolean(m.rootId))?.rootId;
     topicContext = await fetchTopicContext(channel, threadId, {
-      maxMessages: 40,
+      maxMessages: 50,
+      rootMessageId,
       excludeIds: exclude,
     });
     if (topicContext.length > 0) {
