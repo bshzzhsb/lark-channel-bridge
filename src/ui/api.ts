@@ -27,12 +27,15 @@ import {
   getCotMessages,
   getMaxConcurrentRuns,
   getMessageReplyMode,
+  getReplyPlacement,
+  isReplyPlacement,
   getRequireMentionInGroup,
   getRunIdleTimeoutMs,
   getShowToolCalls,
   type AppPreferences,
   type CotMessagesMode,
   type MessageReplyMode,
+  type ReplyPlacement,
 } from '../config/schema';
 import {
   effectiveLarkCliIdentity,
@@ -57,6 +60,8 @@ export interface ConfigView {
   model: string;
   models: { value: string; label: string }[];
   messageReply: MessageReplyMode;
+  dmReplyPlacement: ReplyPlacement;
+  groupReplyPlacement: ReplyPlacement;
   showToolCalls: boolean;
   cotMessages: CotMessagesMode;
   maxConcurrentRuns: number;
@@ -86,6 +91,8 @@ export function buildConfigView(state: MutableProfileState, live = false): Confi
     model: normalizeModelSelection(agentKind, state.cfg.preferences?.model),
     models: supportedModels(agentKind),
     messageReply: getMessageReplyMode(state.cfg),
+    dmReplyPlacement: getReplyPlacement(state.cfg, 'p2p'),
+    groupReplyPlacement: getReplyPlacement(state.cfg, 'group'),
     showToolCalls: getShowToolCalls(state.cfg),
     cotMessages: getCotMessages(state.cfg),
     maxConcurrentRuns: getMaxConcurrentRuns(state.cfg),
@@ -223,6 +230,14 @@ function parseConfigBody(state: MutableProfileState, body: unknown): ParsedConfi
     fv.messageReply === 'markdown' || fv.messageReply === 'text' || fv.messageReply === 'card'
       ? fv.messageReply
       : getMessageReplyMode(state.cfg);
+  const dmReplyPlacement: ReplyPlacement =
+    isReplyPlacement(fv.dmReplyPlacement)
+      ? fv.dmReplyPlacement
+      : getReplyPlacement(state.cfg, 'p2p');
+  const groupReplyPlacement: ReplyPlacement =
+    isReplyPlacement(fv.groupReplyPlacement)
+      ? fv.groupReplyPlacement
+      : getReplyPlacement(state.cfg, 'group');
   const showToolCalls =
     typeof fv.showToolCalls === 'boolean' ? fv.showToolCalls : getShowToolCalls(state.cfg);
   const cotMessages: CotMessagesMode =
@@ -267,6 +282,8 @@ function parseConfigBody(state: MutableProfileState, body: unknown): ParsedConfi
       ...(state.cfg.preferences ?? {}),
       model,
       messageReply,
+      dmReplyPlacement,
+      groupReplyPlacement,
       messageReplyMigrated: true,
       showToolCalls,
       cotMessages,

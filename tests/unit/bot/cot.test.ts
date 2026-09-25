@@ -156,11 +156,13 @@ describe('COT event mapping', () => {
       return { cot_id: 'cot_x', message_id: 'om_x' };
     };
 
-    await client.create('oc_chat', 'om_origin');
+    await client.create('oc_chat', 'om_origin', true);
     expect(calls[0]?.path).toContain('receive_id_type=chat_id');
     // thread_id is never a valid receive type for message_cot.
     expect(calls[0]?.path).not.toContain('thread_id');
-    expect(calls[0]?.body).toMatchObject({ receive_id: 'oc_chat', origin_message_id: 'om_origin' });
+    expect(calls[0]?.body).toMatchObject({
+      receive_id: 'oc_chat', origin_message_id: 'om_origin', reply_in_thread: true,
+    });
   });
 
   it('marks the publisher degraded when COT updates fail', async () => {

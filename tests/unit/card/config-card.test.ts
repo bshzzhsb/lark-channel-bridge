@@ -6,6 +6,8 @@ const base: ConfigFormOpts = {
   mode: 'personal',
   model: 'default',
   messageReply: 'markdown',
+  dmReplyPlacement: 'conversation',
+  groupReplyPlacement: 'thread',
   showToolCalls: false,
   cotMessages: 'off',
   maxConcurrentRuns: 1,
@@ -29,5 +31,13 @@ describe('configFormCard console URL', () => {
   it('omits the console section when no console is running', () => {
     const card = configFormCard(base);
     expect(JSON.stringify(card)).not.toContain('Web 控制台');
+  });
+
+  it('offers separate reply placement choices for direct messages and groups', () => {
+    const card = JSON.stringify(configFormCard(base));
+    expect(card).toContain('dm_reply_placement');
+    expect(card).toContain('group_reply_placement');
+    expect(card).toContain('私聊回复位置');
+    expect(card).toContain('普通群回复位置');
   });
 });

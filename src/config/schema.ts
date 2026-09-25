@@ -67,7 +67,12 @@ export interface SecretsConfig {
  * `markdown`. See `messageReplyMigrated` for the auto-coercion logic.
  */
 export type MessageReplyMode = 'card' | 'markdown' | 'text';
+export type ReplyPlacement = 'conversation' | 'thread';
 export type CotMessagesMode = 'off' | 'brief' | 'detailed';
+
+export function isReplyPlacement(value: unknown): value is ReplyPlacement {
+  return value === 'conversation' || value === 'thread';
+}
 
 /**
  * Access control settings. Empty lists are fail-closed in the v2 policy:
@@ -92,6 +97,10 @@ export interface AppAccess {
 export interface AppPreferences {
   /** Reply rendering mode for IM (group/p2p) messages. Default 'card'. */
   messageReply?: MessageReplyMode;
+  /** Where replies to direct messages appear. Default: conversation. */
+  dmReplyPlacement?: ReplyPlacement;
+  /** Where replies to ordinary group messages appear. Default: thread. */
+  groupReplyPlacement?: ReplyPlacement;
   /**
    * Internal marker: pre-0.1.27 the value `'text'` meant "lightweight
    * streaming markdown card" (what's now called `'markdown'`). On upgrade
@@ -212,6 +221,14 @@ export function getMessageReplyMode(cfg: AppConfig): MessageReplyMode {
   }
   if (raw === 'card' || raw === 'markdown' || raw === 'text') return raw;
   return 'markdown';
+}
+
+export function getReplyPlacement(cfg: AppConfig, chatType: 'p2p' | 'group'): ReplyPlacement {
+  const value = chatType === 'p2p'
+    ? cfg.preferences?.dmReplyPlacement
+    : cfg.preferences?.groupReplyPlacement;
+  if (isReplyPlacement(value)) return value;
+  return chatType === 'p2p' ? 'conversation' : 'thread';
 }
 
 /** Resolve the show-tool-calls preference with default fallback. */

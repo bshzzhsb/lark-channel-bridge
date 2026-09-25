@@ -72,6 +72,52 @@ afterEach(async () => {
 });
 
 describe('topic message quote handling', () => {
+  it('switches direct-message placement live without changing message rendering', async () => {
+    const h = await createHarness({ chatMode: 'group' });
+    h.agent.setEvents([
+      [{ type: 'text', delta: '第一条' }, { type: 'done', terminationReason: 'normal' }],
+      [{ type: 'text', delta: '第二条' }, { type: 'done', terminationReason: 'normal' }],
+    ]);
+    await startTestBridge(h);
+    await h.channel.handlers.message?.(message({
+      messageId: 'om_dm_1', rootId: 'om_dm_1', parentId: 'om_dm_1',
+      chatType: 'p2p', content: '第一问',
+    }));
+    await waitFor(() => h.channel.streams.length === 1);
+    expect(h.channel.streams[0]?.options).toMatchObject({ replyTo: 'om_dm_1' });
+    expect(h.channel.streams[0]?.options).not.toMatchObject({ replyInThread: true });
+
+    h.controls.cfg.preferences = { ...h.controls.cfg.preferences, dmReplyPlacement: 'thread' };
+    await h.channel.handlers.message?.(message({
+      messageId: 'om_dm_2', rootId: 'om_dm_2', parentId: 'om_dm_2',
+      chatType: 'p2p', content: '第二问',
+    }));
+    await waitFor(() => h.channel.streams.length === 2);
+    expect(h.channel.streams[1]?.options).toMatchObject({ replyTo: 'om_dm_2', replyInThread: true });
+  });
+
+  it('uses conversation placement for an ordinary group but stays threaded inside an existing topic', async () => {
+    const h = await createHarness({ chatMode: 'group' });
+    h.controls.cfg.preferences = { ...h.controls.cfg.preferences, groupReplyPlacement: 'conversation' };
+    h.agent.setEvents([
+      [{ type: 'text', delta: '第一条' }, { type: 'done', terminationReason: 'normal' }],
+      [{ type: 'text', delta: '第二条' }, { type: 'done', terminationReason: 'normal' }],
+    ]);
+    await startTestBridge(h);
+    await h.channel.handlers.message?.(message({
+      messageId: 'om_group_1', rootId: 'om_group_1', parentId: 'om_group_1', content: '@Bridge 第一问',
+    }));
+    await waitFor(() => h.channel.streams.length === 1);
+    expect(h.channel.streams[0]?.options).not.toMatchObject({ replyInThread: true });
+
+    await h.channel.handlers.message?.(message({
+      messageId: 'om_group_topic', rootId: 'om_topic_root', parentId: 'om_topic_root',
+      threadId: 'omt_topic', content: '@Bridge 第二问',
+    }));
+    await waitFor(() => h.channel.streams.length === 2);
+    expect(h.channel.streams[1]?.options).toMatchObject({ replyInThread: true });
+  });
+
   it('does not quote the topic root when a user directly mentions the bot inside the topic', async () => {
     const h = await createHarness();
 
@@ -169,9 +215,7 @@ describe('topic message quote handling', () => {
     });
   });
 
-  it('does not thread the reply when a topic-group event has no recoverable threadId', async () => {
-    // Backfill lookup returns nothing → degrade gracefully to chat-level
-    // routing rather than crashing or blocking the run.
+  it('creates a topic reply when a topic-group root has no recoverable threadId', async () => {
     const h = await createHarness({
       chatMode: 'topic',
       agentEvents: [
@@ -194,7 +238,60 @@ describe('topic message quote handling', () => {
 
     expect(h.channel.fetchRawMessage).toHaveBeenCalledWith('om_no_thread');
     await waitFor(() => h.channel.streams.length === 1);
-    expect(h.channel.streams[0]?.options).not.toMatchObject({ replyInThread: true });
+    expect(h.channel.streams[0]?.options).toMatchObject({ replyInThread: true });
+  });
+
+  it('resumes a bot-created topic after a restart without mixing other topics', async () => {
+    const h = await createHarness({
+      chatMode: 'group',
+      agentEvents: [
+        { type: 'system', sessionId: 'sess-first' },
+        { type: 'text', delta: '首轮回答' },
+        { type: 'done', terminationReason: 'normal' },
+      ],
+    });
+    h.workspaces.setCwd('oc_topic_chat', h.tmp.workspace);
+    await startTestBridge(h);
+    await h.channel.handlers.message?.(message({
+      messageId: 'om_first', rootId: 'om_first', parentId: 'om_first', content: '@Bridge 第一问',
+    }));
+    await waitFor(() => Boolean(h.sessions.getRaw('oc_topic_chat:root:om_first')?.sessionId));
+    await waitFor(() => h.channel.streams.length === 1);
+    expect(h.channel.streams[0]?.options).toMatchObject({ replyTo: 'om_first', replyInThread: true });
+    expect(h.agent.runOptions[0]?.cwd).toBe(await realpath(h.tmp.workspace));
+    await Promise.all([h.sessions.flush(), h.workspaces.flush()]);
+
+    const sessions = new SessionStore(join(h.tmp.profile, 'sessions.json'));
+    await sessions.load();
+    const workspaces = new WorkspaceStore(join(h.tmp.profile, 'workspaces.json'));
+    await workspaces.load();
+    const channel = createFakeLarkChannel({ chatMode: 'group' });
+    const agent = new FakeAgentAdapter({ events: [
+      [{ type: 'text', delta: '追问回答' }, { type: 'done', terminationReason: 'normal' }],
+      [{ type: 'text', delta: '其他话题' }, { type: 'done', terminationReason: 'normal' }],
+    ] });
+    sdkMock.channel = channel;
+    const bridge = await startChannel({
+      cfg: h.profileConfig, agent, sessions, workspaces, controls: createControls(h.profileConfig),
+    });
+    cleanups.push(async () => { await bridge.disconnect(); await sessions.flush(); await workspaces.flush(); });
+
+    await channel.handlers.message?.(message({
+      messageId: 'om_followup', rootId: 'om_first', parentId: 'om_first',
+      content: '@Bridge 继续',
+    }));
+    await waitFor(() => agent.runOptions.length === 1);
+    expect(agent.runOptions[0]?.sessionId).toBe('sess-first');
+    expect(agent.runOptions[0]?.cwd).toBe(await realpath(h.tmp.workspace));
+    await waitFor(() => channel.streams.length === 1);
+    expect(channel.streams[0]?.options).toMatchObject({ replyInThread: true });
+
+    await channel.handlers.message?.(message({
+      messageId: 'om_other', rootId: 'om_other_root', parentId: 'om_other_root',
+      threadId: 'omt_other', content: '@Bridge 新话题',
+    }));
+    await waitFor(() => agent.runOptions.length === 2);
+    expect(agent.runOptions[1]?.sessionId).toBeUndefined();
   });
 
   it('pulls in the topic upstream messages when first engaged in a topic', async () => {
@@ -637,6 +734,7 @@ function message(input: {
   rootId: string;
   parentId: string;
   threadId?: string;
+  chatType?: 'p2p' | 'group';
   content: string;
   rawContentType?: string;
   mentionedBot?: boolean;
@@ -646,7 +744,7 @@ function message(input: {
   return {
     messageId: input.messageId,
     chatId: 'oc_topic_chat',
-    chatType: 'group',
+    chatType: input.chatType ?? 'group',
     senderId: 'ou_user',
     senderName: 'User',
     content: input.content,

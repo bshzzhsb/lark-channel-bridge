@@ -71,24 +71,15 @@ export class CotClient {
     return data.data ?? data;
   }
 
-  async create(chatId: string, originMessageId?: string): Promise<Record<string, unknown>> {
-    // message_cot only accepts receive_id_type=chat_id. thread_id is NOT a
-    // valid receive type for this endpoint (it exists only on the forward
-    // APIs) — addressing the create to an omt_* thread id is rejected with
-    // code=10002 "Bot/User can NOT be out of the chat" (the backend tries to
-    // resolve the omt_* id as a chat the bot belongs to and finds none).
-    //
-    // Placement inside a topic is instead governed by origin_message_id: the
-    // bubble inherits the topic of the message it originates from. Passing an
-    // in-topic message id keeps the bubble in the topic; the topic's root
-    // (首楼) message has no thread of its own, so a bubble originated from it
-    // lands at the group top level. Callers pick origin_message_id
-    // accordingly.
+  async create(chatId: string, originMessageId?: string, replyInThread = false): Promise<Record<string, unknown>> {
+    // message_cot is addressed to the chat. The origin identifies the
+    // message being answered, and reply_in_thread selects topic placement.
     return this.request('/open-apis/im/v1/message_cot?receive_id_type=chat_id', {
       method: 'POST',
       body: JSON.stringify({
         receive_id: chatId,
         ...(originMessageId ? { origin_message_id: originMessageId } : {}),
+        reply_in_thread: replyInThread,
       }),
     });
   }
@@ -130,6 +121,7 @@ export class CotPublisher {
   private readonly client: Pick<CotClient, 'create' | 'update' | 'complete'>;
   readonly chatId: string;
   readonly originMessageId: string;
+  readonly replyInThread: boolean;
   readonly runId: string;
   readonly scope: string;
   readonly inputPreview: string;
@@ -144,6 +136,7 @@ export class CotPublisher {
     client: Pick<CotClient, 'create' | 'update' | 'complete'>;
     chatId: string;
     originMessageId: string;
+    replyInThread?: boolean;
     runId: string;
     scope: string;
     inputPreview: string;
@@ -151,21 +144,20 @@ export class CotPublisher {
     this.client = opts.client;
     this.chatId = opts.chatId;
     this.originMessageId = opts.originMessageId;
+    this.replyInThread = opts.replyInThread === true;
     this.runId = opts.runId;
     this.scope = opts.scope;
     this.inputPreview = opts.inputPreview;
   }
 
   async start(): Promise<void> {
-    // Single chat_id-addressed create. In topics the bubble follows
-    // originMessageId's thread (see CotClient.create); the caller passes an
-    // in-topic origin so it lands in the topic. On any failure we disable CoT
+    // Single chat_id-addressed create. On any failure we disable CoT
     // and let the caller fall back to a plain reply — never retry, since a
     // create that failed after committing server-side would leave a duplicate
     // bubble spinning forever.
     let created: Record<string, unknown>;
     try {
-      created = await this.client.create(this.chatId, this.originMessageId);
+      created = await this.client.create(this.chatId, this.originMessageId, this.replyInThread);
     } catch (err) {
       this.disabled = true;
       log.warn('cot', 'create-failed', { err: err instanceof Error ? err.message : String(err) });

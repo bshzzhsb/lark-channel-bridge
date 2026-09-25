@@ -130,19 +130,29 @@ describe('ui server (supervisor-backed)', () => {
 
     const config = await json(await get('/api/config', handle.token));
     expect(config.mode).toBe('personal');
+    expect(config.dmReplyPlacement).toBe('conversation');
+    expect(config.groupReplyPlacement).toBe('thread');
     expect(config.live).toBe(true);
   });
 
   it('applies a config change live to an online profile and persists it', async () => {
     const view = await json(
-      await post('/api/config', handle.token, { mode: 'team', maxConcurrentRuns: 7, requireMentionInGroup: false }),
+      await post('/api/config', handle.token, {
+        mode: 'team', maxConcurrentRuns: 7, requireMentionInGroup: false,
+        dmReplyPlacement: 'thread', groupReplyPlacement: 'conversation',
+      }),
     );
     expect(view.mode).toBe('team');
     expect(view.live).toBe(true);
+    expect(view.dmReplyPlacement).toBe('thread');
+    expect(view.groupReplyPlacement).toBe('conversation');
     expect(online.get('claude').profileConfig.mode).toBe('team'); // in-memory controls updated
 
     const saved = JSON.parse(await readFile(configPath, 'utf8'));
     expect(saved.profiles.claude.mode).toBe('team');
+    expect(saved.profiles.claude.preferences).toMatchObject({
+      dmReplyPlacement: 'thread', groupReplyPlacement: 'conversation',
+    });
   });
 
   it('reads and writes an offline profile on disk (deferred, live=false)', async () => {

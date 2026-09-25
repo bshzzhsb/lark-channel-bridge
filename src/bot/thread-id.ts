@@ -23,15 +23,23 @@ export async function lookupMessageThreadId(
   channel: LarkChannel,
   messageId: string,
 ): Promise<string | undefined> {
+  return (await lookupMessageThreadContext(channel, messageId)).threadId;
+}
+
+export async function lookupMessageThreadContext(
+  channel: LarkChannel,
+  messageId: string,
+): Promise<{ threadId?: string; rootId?: string }> {
   try {
     const [parent] = await channel.fetchRawMessage(messageId);
-    // ApiMessageItem's SDK type omits thread_id even though the API returns it.
-    return (parent as { thread_id?: string } | undefined)?.thread_id;
+    // ApiMessageItem's SDK type omits these fields even though the API returns them.
+    const raw = parent as { thread_id?: string; root_id?: string; parent_id?: string } | undefined;
+    return { threadId: raw?.thread_id, rootId: raw?.root_id ?? raw?.parent_id };
   } catch (err) {
     log.warn('thread', 'thread-id-lookup-failed', {
       messageId,
       err: err instanceof Error ? err.message : String(err),
     });
-    return undefined;
+    return {};
   }
 }

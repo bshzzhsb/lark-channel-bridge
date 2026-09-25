@@ -151,6 +151,17 @@ describe('profile schema', () => {
     });
   });
 
+  it('keeps valid reply placement choices and drops invalid ones', () => {
+    const cfg = normalizeProfileConfig({
+      schemaVersion: 2,
+      agentKind: 'claude',
+      accounts: { app },
+      preferences: { dmReplyPlacement: 'thread', groupReplyPlacement: 'invalid' },
+    });
+    expect(cfg.preferences.dmReplyPlacement).toBe('thread');
+    expect(cfg.preferences.groupReplyPlacement).toBeUndefined();
+  });
+
   it('normalizes workspaces to a default working directory only', () => {
     const cfg = createDefaultProfileConfig({
       agentKind: 'claude',

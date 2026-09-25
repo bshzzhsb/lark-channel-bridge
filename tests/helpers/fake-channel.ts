@@ -26,7 +26,8 @@ export interface FakeChannel {
    * card dispatcher reads to scope topic-group clicks. Empty by default.
    */
   readonly rawThreadIds: Map<string, string>;
-  fetchRawMessage(messageId: string): Promise<Array<{ thread_id?: string }>>;
+  readonly rawRootIds: Map<string, string>;
+  fetchRawMessage(messageId: string): Promise<Array<{ thread_id?: string; root_id?: string }>>;
   readonly rawClient: {
     readonly requests: FakeRawClientRequest[];
     request(method: string, params: unknown): Promise<unknown>;
@@ -59,6 +60,7 @@ export function createFakeChannel(): FakeChannel {
   const streams: FakeChannelStream[] = [];
   const requests: FakeRawClientRequest[] = [];
   const rawThreadIds = new Map<string, string>();
+  const rawRootIds = new Map<string, string>();
   const cardById = new Map<string, unknown>();
   let nextCard = 1;
   let nextMessage = 1;
@@ -78,9 +80,11 @@ export function createFakeChannel(): FakeChannel {
     sent,
     streams,
     rawThreadIds,
-    async fetchRawMessage(messageId: string): Promise<Array<{ thread_id?: string }>> {
+    rawRootIds,
+    async fetchRawMessage(messageId: string): Promise<Array<{ thread_id?: string; root_id?: string }>> {
       const threadId = rawThreadIds.get(messageId);
-      return [threadId ? { thread_id: threadId } : {}];
+      const rootId = rawRootIds.get(messageId);
+      return [{ ...(threadId ? { thread_id: threadId } : {}), ...(rootId ? { root_id: rootId } : {}) }];
     },
     rawClient: {
       requests,

@@ -166,6 +166,7 @@ DMs do not require an @ mention. Groups and topic groups require `@bot` by defau
 `/config` controls three presentation settings:
 
 - **Message reply mode**: `message card` streams the final reply; `plain text` sends once after the run finishes.
+- **Reply placement**: choose conversation or thread replies independently for DMs and ordinary groups. DMs default to conversation replies; groups default to thread replies. Messages already in a topic stay in that topic, including COT and command replies.
 - **Tool-call display**: controls whether tool blocks appear in the final card / markdown reply.
 - **COT process message**: `off` sends only the final reply; `brief` first sends a COT message with agent progress text and tool summaries; `detailed` also includes tool args and truncated output.
 

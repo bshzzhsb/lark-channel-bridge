@@ -80,6 +80,8 @@ export function ConfigView({ profile }: { profile: string }) {
         meeting: cfg.meeting,
         model: cfg.model,
         messageReply: cfg.messageReply,
+        dmReplyPlacement: cfg.dmReplyPlacement,
+        groupReplyPlacement: cfg.groupReplyPlacement,
         showToolCalls: cfg.showToolCalls,
         cotMessages: cfg.cotMessages,
         maxConcurrentRuns: cfg.maxConcurrentRuns,
@@ -149,6 +151,14 @@ export function ConfigView({ profile }: { profile: string }) {
           <Field label="消息回复方式">
             <SelectRow value={cfg.messageReply} onChange={(v) => set("messageReply", v as ConfigData["messageReply"])}
               options={[["markdown", "消息卡片（默认）"], ["text", "纯文本"]]} />
+          </Field>
+          <Field label="私聊回复位置">
+            <SelectRow value={cfg.dmReplyPlacement} onChange={(v) => set("dmReplyPlacement", v as ConfigData["dmReplyPlacement"])}
+              options={[["conversation", "对话回复（默认）"], ["thread", "话题回复"]]} />
+          </Field>
+          <Field label="普通群回复位置" hint="已在话题内的消息始终回复到当前话题。">
+            <SelectRow value={cfg.groupReplyPlacement} onChange={(v) => set("groupReplyPlacement", v as ConfigData["groupReplyPlacement"])}
+              options={[["conversation", "对话回复"], ["thread", "话题回复（默认）"]]} />
           </Field>
           <ToggleRow label="工具调用显示" hint="显示 bot 执行的命令与文件读写过程" checked={cfg.showToolCalls}
             onChange={(v) => set("showToolCalls", v)} />
