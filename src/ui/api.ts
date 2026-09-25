@@ -44,7 +44,7 @@ import {
   type ProfileAccess,
   type ProfileMode,
 } from '../config/profile-schema';
-import { DEFAULT_MODEL, normalizeModelSelection, supportedModels } from '../agent/models';
+import { resolveModelArg } from '../agent/models';
 import { log } from '../core/logger';
 import { HttpError } from './http';
 import type { UiRuntime } from './types';
@@ -58,7 +58,6 @@ export interface ConfigView {
   agentKind: string;
   mode: ProfileMode;
   model: string;
-  models: { value: string; label: string }[];
   messageReply: MessageReplyMode;
   dmReplyPlacement: ReplyPlacement;
   groupReplyPlacement: ReplyPlacement;
@@ -88,8 +87,7 @@ export function buildConfigView(state: MutableProfileState, live = false): Confi
     profile: state.profile,
     agentKind,
     mode: state.profileConfig.mode,
-    model: normalizeModelSelection(agentKind, state.cfg.preferences?.model),
-    models: supportedModels(agentKind),
+    model: resolveModelArg(agentKind, state.cfg.preferences?.model) ?? '',
     messageReply: getMessageReplyMode(state.cfg),
     dmReplyPlacement: getReplyPlacement(state.cfg, 'p2p'),
     groupReplyPlacement: getReplyPlacement(state.cfg, 'group'),
@@ -219,12 +217,13 @@ function parseConfigBody(state: MutableProfileState, body: unknown): ParsedConfi
       ? fv.larkCliIdentity
       : state.profileConfig.larkCli.identityPreset;
 
-  const rawModel = typeof fv.model === 'string' ? fv.model : '';
-  const modelValid = rawModel !== '' && supportedModels(agentKind).some((m) => m.value === rawModel);
-  const modelSelection = modelValid
-    ? rawModel
-    : normalizeModelSelection(agentKind, state.cfg.preferences?.model);
-  const model = modelSelection === DEFAULT_MODEL ? undefined : modelSelection;
+  let model = state.cfg.preferences?.model;
+  if (Object.prototype.hasOwnProperty.call(fv, 'model')) {
+    if (fv.model !== null && typeof fv.model !== 'string') {
+      throw new ApiError(400, 'model must be a string or null');
+    }
+    model = resolveModelArg(agentKind, typeof fv.model === 'string' ? fv.model : undefined);
+  }
 
   const messageReply: MessageReplyMode =
     fv.messageReply === 'markdown' || fv.messageReply === 'text' || fv.messageReply === 'card'

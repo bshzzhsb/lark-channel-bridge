@@ -4,7 +4,7 @@ import { homedir } from 'node:os';
 import { dirname, isAbsolute } from 'node:path';
 import type { LarkChannel, NormalizedMessage } from '@larksuite/channel';
 import { claudeCapability, codexCapability } from '../agent/capability';
-import { DEFAULT_MODEL, normalizeModelSelection, supportedModels } from '../agent/models';
+import { normalizeModelSelection, resolveModelArg } from '../agent/models';
 import type { AgentAdapter } from '../agent/types';
 import type { ActiveRuns } from '../bot/active-runs';
 import {
@@ -1808,16 +1808,14 @@ async function submitConfig(ctx: CommandContext): Promise<void> {
     ? rawGroupPlacement : getReplyPlacement(ctx.controls.cfg, 'group');
   const rawTools = String(fv.show_tool_calls ?? '').trim();
   const showToolCalls = rawTools !== 'hide';
-  // Parse the model picker. Unexpected / empty values keep the current
-  // selection. Store `undefined` for the "default" sentinel to keep config
-  // tidy (resolveModelArg treats both the same way).
+  // The model field is free text. Empty or omitted input clears the override
+  // and lets the CLI / account choose its default.
   const agentKind = ctx.controls.profileConfig.agentKind;
-  const rawModel = String(fv.model ?? '').trim();
-  const modelValid = rawModel !== '' && supportedModels(agentKind).some((m) => m.value === rawModel);
-  const modelSelection = modelValid
-    ? rawModel
-    : normalizeModelSelection(agentKind, ctx.controls.cfg.preferences?.model);
-  const model = modelSelection === DEFAULT_MODEL ? undefined : modelSelection;
+  const modelSelection = normalizeModelSelection(
+    agentKind,
+    typeof fv.model === 'string' ? fv.model : undefined,
+  );
+  const model = resolveModelArg(agentKind, modelSelection);
   const rawCotMessages = String(fv.cot_messages ?? '').trim();
   const cotMessages =
     rawCotMessages === 'brief'

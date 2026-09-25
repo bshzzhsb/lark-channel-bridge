@@ -117,10 +117,8 @@ export interface AppPreferences {
    */
   showToolCalls?: boolean;
   /**
-   * Model the underlying agent runs with, forwarded as `--model`. The catalog
-   * of valid values is agent-kind specific — see `agent/models.ts`. `undefined`
-   * or the `'default'` sentinel means "don't pass `--model`" so the agent
-   * CLI / account default applies. Default: unset.
+   * Optional model ID or alias forwarded as `--model`. `undefined`, an empty
+   * value, or the legacy `'default'` sentinel means the CLI / account default.
    */
   model?: string;
   /**

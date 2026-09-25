@@ -1,14 +1,14 @@
-import { modelLabel, supportedModels } from '../agent/models';
+import { DEFAULT_MODEL, modelLabel } from '../agent/models';
 import type { KnownChat } from '../bot/lark-info';
 import type { AgentKind, LarkCliIdentityPreset, ProfileMode } from '../config/profile-schema';
 import type { CotMessagesMode, MessageReplyMode, ReplyPlacement } from '../config/schema';
 
 export interface ConfigFormOpts {
-  /** Profile's agent kind — decides which model catalog the picker shows. */
+  /** Profile's agent kind, used in the saved summary. */
   agentKind: AgentKind;
   /** Deployment mode: 'personal' (default) or 'team'. */
   mode: ProfileMode;
-  /** Current model selection (a value from {@link supportedModels}). */
+  /** Current model ID or alias; `DEFAULT_MODEL` represents an empty input. */
   model: string;
   messageReply: MessageReplyMode;
   dmReplyPlacement: ReplyPlacement;
@@ -159,17 +159,15 @@ export function configFormCard(opts: ConfigFormOpts): object {
               tag: 'markdown',
               content:
                 '**模型**\n' +
-                '_底层 agent 运行使用的模型_\n' +
-                '_「跟随默认」= 不指定,由 CLI/账号决定_',
+                '_输入 Claude / Codex CLI 支持的模型 ID 或别名_\n' +
+                '_留空则由 CLI / 账号选择默认模型_',
             },
             {
-              tag: 'select_static',
+              tag: 'input',
               name: 'model',
-              initial_option: opts.model,
-              options: supportedModels(opts.agentKind).map((m) => ({
-                text: { tag: 'plain_text', content: m.label },
-                value: m.value,
-              })),
+              input_type: 'text',
+              ...(opts.model !== DEFAULT_MODEL ? { default_value: opts.model } : {}),
+              placeholder: { tag: 'plain_text', content: '留空使用 CLI 默认模型' },
             },
             { tag: 'hr' },
             {
@@ -360,6 +358,9 @@ export function configSavedCard(opts: ConfigFormOpts): object {
   const summarize = (list: string[]): string =>
     list.length === 0 ? '_(空)_' : `${list.length} 项`;
   const cotLabel = cotMessagesLabel(opts.cotMessages);
+  const safeModelLabel = modelLabel(opts.agentKind, opts.model)
+    .replace(/`/g, 'ˋ')
+    .replace(/[\r\n]/g, ' ');
   return {
     schema: '2.0',
     config: { summary: { content: '偏好已保存' } },
@@ -370,7 +371,7 @@ export function configSavedCard(opts: ConfigFormOpts): object {
           content:
             '✅ **偏好已保存**\n\n' +
             `**运行模式**:\`${opts.mode === 'team' ? '团队版' : '个人版'}\`\n` +
-            `**模型**:\`${modelLabel(opts.agentKind, opts.model)}\`\n` +
+            `**模型**:\`${safeModelLabel}\`\n` +
             `**消息回复方式**:${replyLabel}\n` +
             `**私聊回复位置**:${opts.dmReplyPlacement === 'thread' ? '话题回复' : '对话回复'}\n` +
             `**普通群回复位置**:${opts.groupReplyPlacement === 'thread' ? '话题回复' : '对话回复'}\n` +

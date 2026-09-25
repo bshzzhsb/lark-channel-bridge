@@ -31,17 +31,11 @@ export interface ProfileInfo {
   running: boolean;
 }
 
-export interface ModelOption {
-  value: string;
-  label: string;
-}
-
 export interface ConfigView {
   profile: string;
   agentKind: AgentKind;
   mode: ProfileMode;
   model: string;
-  models: ModelOption[];
   messageReply: MessageReply;
   dmReplyPlacement: ReplyPlacement;
   groupReplyPlacement: ReplyPlacement;
