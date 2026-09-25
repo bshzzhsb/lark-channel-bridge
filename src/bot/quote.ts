@@ -166,22 +166,36 @@ async function normalizeItemToQuoted(
 
 /**
  * Fetch a Feishu topic's upstream messages (chronological) so the agent has the
- * conversation it's being pulled into. Feishu's `im.v1.message.list` with
- * `container_id_type=thread` returns every message in the topic — including the
- * root that may never have @-mentioned the bot. Used only on the bot's first
- * engagement in a topic (an already-engaged topic keeps its history in the
- * resumed session).
+ * conversation it's being pulled into. The root message is fetched by ID
+ * separately because the thread-list endpoint is not a reliable source for
+ * the message that started the thread. Used only on the bot's first engagement
+ * in a topic (an already-engaged topic keeps its history in the resumed
+ * session).
  *
  * `excludeIds` drops the triggering messages and any explicit reply-quotes so
- * they aren't duplicated. Capped at `maxMessages` (keeps the most recent when
- * the topic is longer). Returns `[]` on any error — context is best-effort.
+ * they aren't duplicated. The root is returned once at the beginning and does
+ * not count against `maxMessages`. Thread history is capped at that limit
+ * (keeps the most recent when the topic is longer). Reads are best-effort: a
+ * list result can supply the root if its direct fetch fails.
  */
 export async function fetchTopicContext(
   channel: LarkChannel,
   threadId: string,
-  opts: { maxMessages: number; excludeIds?: Set<string> },
+  opts: { maxMessages: number; excludeIds?: Set<string>; rootMessageId?: string },
 ): Promise<QuotedContext[]> {
+  const exclude = new Set(opts.excludeIds ?? []);
+  const rootMessageId = opts.rootMessageId;
+  const rootContext = rootMessageId && !exclude.has(rootMessageId)
+    ? await fetchQuotedContext(channel, rootMessageId)
+    : undefined;
+  const rootAlreadyProvided = Boolean(rootMessageId && exclude.has(rootMessageId));
+  // When the direct lookup succeeds (or the root is already in the current
+  // batch/quoted context), exclude it from the thread list to avoid duplicates.
+  if (rootMessageId && (rootContext || rootAlreadyProvided)) exclude.add(rootMessageId);
+
   const collected: ApiMessageItem[] = [];
+  const seen = new Set<string>();
+  let rootFromList: ApiMessageItem | undefined;
   let pageToken: string | undefined;
   try {
     do {
@@ -189,7 +203,7 @@ export async function fetchTopicContext(
         params: {
           container_id_type: 'thread',
           container_id: threadId,
-          sort_type: 'ByCreateTimeAsc',
+          sort_type: 'ByCreateTimeDesc',
           page_size: 50,
           ...(pageToken ? { page_token: pageToken } : {}),
         },
@@ -198,23 +212,29 @@ export async function fetchTopicContext(
         data?: { items?: ApiMessageItem[]; messages?: ApiMessageItem[]; has_more?: boolean; page_token?: string };
       }).data;
       const items = data?.items ?? data?.messages ?? [];
-      collected.push(...items);
+      for (const item of items) {
+        const messageId = item.message_id;
+        if (!messageId || (item as { deleted?: boolean }).deleted) continue;
+        if (messageId === rootMessageId && !rootContext && !rootAlreadyProvided) {
+          rootFromList ??= item;
+          continue;
+        }
+        if (exclude.has(messageId) || seen.has(messageId)) continue;
+        seen.add(messageId);
+        collected.push(item);
+      }
       pageToken = data?.has_more ? data.page_token : undefined;
-    } while (pageToken && collected.length < opts.maxMessages * 4);
+    } while (pageToken && collected.length < opts.maxMessages);
   } catch (err) {
     log.warn('topic', 'context-fetch-failed', {
       threadId,
       err: err instanceof Error ? err.message : String(err),
     });
-    return [];
   }
 
-  const exclude = opts.excludeIds ?? new Set<string>();
-  const relevant = collected
-    .filter(
-      (m) => m.message_id && !exclude.has(m.message_id) && !(m as { deleted?: boolean }).deleted,
-    )
-    .slice(-opts.maxMessages);
+  // The API results are newest-first to avoid paging through the entire thread;
+  // restore chronological order for the prompt after retaining the newest N.
+  const relevant = collected.slice(0, opts.maxMessages).reverse();
 
   const out: QuotedContext[] = [];
   for (const item of relevant) {
@@ -225,7 +245,17 @@ export async function fetchTopicContext(
     const quoted = await normalizeItemToQuoted(channel, item, fetchSubMessages);
     if (quoted) out.push(quoted);
   }
-  return out;
+  const rootItem = rootFromList;
+  const listedRootContext = !rootContext && rootItem
+    ? await normalizeItemToQuoted(channel, rootItem, async (mid) => {
+        const source = mid === rootItem.message_id
+          ? [rootItem]
+          : await fetchSubTreeItems(channel, mid);
+        return source.map(preExpandInteractive);
+      })
+    : undefined;
+  const root = rootContext ?? listedRootContext;
+  return root ? [root, ...out] : out;
 }
 
 /**
