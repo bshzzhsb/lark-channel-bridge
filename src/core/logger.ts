@@ -345,7 +345,7 @@ function formatStdout(
   }
   if (phase === 'intake' && event === 'command') {
     const scope = shortId(fields.scope);
-    return `  ↳ command scope=${scope} dropped=${fields.droppedPending ?? 0}`;
+    return `  ↳ command scope=${scope}`;
   }
   if (phase === 'run' && event === 'started') {
     const scope = shortId(fields.scope);

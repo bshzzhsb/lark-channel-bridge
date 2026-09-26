@@ -25,7 +25,7 @@ import { GROUP_MSG_SCOPE, hasGroupMsgScope } from '../bot/app-scope';
 import { requestScopeGrantLink } from '../bot/wizard';
 import { forgetManagedCard, sendManagedCard, updateManagedCard } from '../card/managed';
 import { helpCard, resumeCard, statusCard, workspacesCard } from '../card/templates';
-import type { AppConfig, AppPreferences, MessageReplyMode, ReplyPlacement, TenantBrand } from '../config/schema';
+import type { AppConfig, AppPreferences, CotMessagesMode, MessageReplyMode, ReplyPlacement, TenantBrand } from '../config/schema';
 import {
   getAgentStopGraceMs,
   getCotMessages,
@@ -82,6 +82,7 @@ import { validateAppCredentials } from '../utils/feishu-auth';
 import type { WorkspaceStore } from '../workspace/store';
 import { createBoundChat, defaultChatName } from '../bot/group';
 import { replyOptions } from '../bot/reply-placement';
+import { handleOnboard } from '../bot/onboard';
 import { fetchKnownChats, type KnownChat } from '../bot/lark-info';
 import { describeMeetingError, type MeetingManager } from '../meeting/manager';
 import { isMeetingNo } from '../meeting/api';
@@ -141,6 +142,10 @@ export interface CommandContext {
   activeRuns: ActiveRuns;
   processPool?: ProcessPool;
   runExecutor?: RunExecutor;
+  /** Clear queued messages according to the command's queue policy. */
+  clearPending?: (scope: string) => void;
+  /** Start one agent run through the channel's shared run pipeline. */
+  runAgent?: (request: AgentRunRequest) => Promise<AgentRunResult>;
   controls: Controls;
   codexHistoryProvider?: (
     options: ListCodexThreadHistoryOptions,
@@ -154,7 +159,55 @@ export interface CommandContext {
   fromCardAction?: boolean;
 }
 
+export interface AgentRunOptions {
+  prompt?: string;
+  sendOpts?: { replyTo: string; replyInThread: boolean };
+  cot?: AgentRunCotOptions;
+  /** Restrict this run further than the profile's configured access. */
+  access?: 'profile' | 'read-only';
+  /** Suppress the final chat reply and return the agent's final text instead. */
+  reply?: 'normal' | 'silent';
+  /** Do not persist this run's session events. */
+  persistSession?: boolean;
+  stage?: string;
+  /** Create a standalone message/COT anchor for this run. */
+  sessionAnchor?: {
+    title: string;
+    fallbackMessage: string;
+    /** A new topic gives the task its own session; otherwise reuse the current scope. */
+    placement: 'current' | 'new-topic';
+  };
+}
+
+export interface AgentRunCotOptions {
+  stepName?: string;
+  inputPreview?: string;
+  detail?: Exclude<CotMessagesMode, 'off'>;
+}
+
+export interface AgentRunRequest extends AgentRunOptions {
+  message: NormalizedMessage;
+  scopeId: string;
+  mode: 'p2p' | 'group' | 'topic';
+}
+
+export interface AgentRunResult {
+  scopeId: string;
+  anchorMessageId?: string;
+  finalText?: string;
+  sessionId?: string;
+  threadId?: string;
+  cwdRealpath?: string;
+  error?: string;
+  errorReported?: boolean;
+}
+
 type Handler = (args: string, ctx: CommandContext) => Promise<void>;
+
+interface CommandOptions {
+  /** Defaults to true. Set false to resume queued messages after this command. */
+  clearPending?: boolean;
+}
 
 interface ResumeCandidate {
   scopeId: string;
@@ -191,7 +244,16 @@ const handlers: Record<string, Handler> = {
   '/invite': handleInvite,
   '/remove': handleRemove,
   '/meeting': handleMeeting,
+  '/onboard': handleOnboard,
 };
+
+const commandOptions: Partial<Record<string, CommandOptions>> = {
+  '/onboard': { clearPending: false },
+};
+
+function clearCommandPending(cmd: string, ctx: CommandContext): void {
+  if (commandOptions[cmd]?.clearPending !== false) ctx.clearPending?.(ctx.scope);
+}
 
 /**
  * Commands that can mutate credentials, lifecycle, filesystem reach, or
@@ -235,6 +297,7 @@ export async function tryHandleCommand(ctx: CommandContext): Promise<boolean> {
       sender: ctx.msg.senderId.slice(-6),
     });
     await reply(ctx, '❌ 此命令仅管理员可用。');
+    clearCommandPending(cmd, ctx);
     return true;
   }
   try {
@@ -242,6 +305,8 @@ export async function tryHandleCommand(ctx: CommandContext): Promise<boolean> {
   } catch (err) {
     log.fail('command', err, { cmd });
     reportMetric('command_fail', 1, { step: 'dispatch' });
+  } finally {
+    clearCommandPending(cmd, ctx);
   }
   return true;
 }
@@ -266,6 +331,7 @@ export async function runCommandHandler(
     // Card actions can't reply naturally (the `msg` is synthesized); the
     // click is silently denied. The button only renders for users who got
     // the original admin card in the first place, so this is an edge case.
+    clearCommandPending(`/${name}`, ctx);
     return true;
   }
   try {
@@ -273,6 +339,8 @@ export async function runCommandHandler(
   } catch (err) {
     log.fail('command', err, { cmd: name });
     reportMetric('command_fail', 1, { step: 'handler' });
+  } finally {
+    clearCommandPending(`/${name}`, ctx);
   }
   return true;
 }
@@ -855,6 +923,8 @@ async function handleStop(args: string, ctx: CommandContext): Promise<void> {
     return;
   }
   const scope = targetScope || ctx.scope;
+  // Clear before interrupting: finishing the active run can resume its queue.
+  ctx.clearPending?.(scope);
   const ok = ctx.activeRuns.interrupt(scope);
   log.info('command', 'stop', {
     scope,

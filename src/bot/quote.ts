@@ -7,6 +7,18 @@ import { normalize } from '@larksuite/channel';
 import { log } from '../core/logger';
 import { expandInteractiveCard } from './interactive-card';
 
+type MessageGetResponse = Awaited<ReturnType<LarkChannel['rawClient']['im']['v1']['message']['get']>>;
+export type FeishuMessageItem = NonNullable<NonNullable<MessageGetResponse['data']>['items']>[number];
+
+/** The channel wrapper forwards message.get items but publishes a narrower item type. */
+export async function fetchFeishuMessageItems(
+  channel: LarkChannel,
+  messageId: string,
+  cardContentType: string | null = 'user_card_content',
+): Promise<FeishuMessageItem[]> {
+  return await channel.fetchRawMessage(messageId, { cardContentType }) as unknown as FeishuMessageItem[];
+}
+
 export interface QuotedContext {
   messageId: string;
   senderId: string;
@@ -22,12 +34,16 @@ export interface QuotedContext {
    * </forwarded_messages>` (capped at 50 items by the SDK). */
   content: string;
   rawContentType: string;
+  mentionedOpenIds?: string[];
+  threadId?: string;
+  rootId?: string;
+  parentId?: string;
 }
 
 /**
  * Fetch and normalize the content of a message that the user is reply-quoting.
  *
- * Why this is non-trivial: `im.v1.message.get` returns a flat `ApiMessageItem`
+ * Why this is non-trivial: `im.v1.message.get` returns a flat message item
  * list (parent + descendants for merge_forward), but the bot intake pipeline
  * deals in `NormalizedMessage`. We synthesize a `RawMessageEvent` from the
  * parent item and feed it through the SDK's `normalize` so merge_forward gets
@@ -50,7 +66,7 @@ export interface QuotedContext {
  * each sub's flattened form, so we have to inject expansion at the sub-fetch
  * layer.
  */
-function preExpandInteractive(item: ApiMessageItem): ApiMessageItem {
+function preExpandInteractive(item: FeishuMessageItem): FeishuMessageItem {
   if (item.msg_type !== 'interactive') return item;
   const raw = item.body?.content;
   if (typeof raw !== 'string' || raw.length === 0) return item;
@@ -66,13 +82,11 @@ export async function fetchQuotedContext(
   channel: LarkChannel,
   messageId: string,
 ): Promise<QuotedContext | undefined> {
-  let items: ApiMessageItem[];
+  let items: FeishuMessageItem[];
   try {
     // Ask for the original card JSON (incl. v2 user_dsl) instead of the
     // default v1-canonical fallback that strips it.
-    items = await channel.fetchRawMessage(messageId, {
-      cardContentType: 'user_card_content',
-    });
+    items = await fetchFeishuMessageItems(channel, messageId);
   } catch (err) {
     log.warn('quote', 'fetch-failed', {
       messageId,
@@ -87,7 +101,7 @@ export async function fetchQuotedContext(
   // this same id (merge_forward case). For nested merge_forwards inside, fetch
   // fresh — and let a fetch failure throw so it surfaces as a fetch_failed
   // forward rather than a silently-empty one (see fetchSubTreeItems).
-  const fetchSubMessages = async (mid: string): Promise<ApiMessageItem[]> => {
+  const fetchSubMessages = async (mid: string): Promise<FeishuMessageItem[]> => {
     if (mid === parent.message_id) return items.map(preExpandInteractive);
     const subItems = await fetchSubTreeItems(channel, mid);
     return subItems.map(preExpandInteractive);
@@ -102,6 +116,25 @@ function mapSenderType(raw: unknown): 'user' | 'bot' | undefined {
   return undefined;
 }
 
+function normalizedMentions(value: FeishuMessageItem['mentions']): RawMessageEvent['message']['mentions'] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') return [];
+    const mention = item as { key?: unknown; id?: unknown; name?: unknown };
+    const id = typeof mention.id === 'string'
+      ? { open_id: mention.id }
+      : mention.id && typeof mention.id === 'object'
+        ? mention.id as { open_id?: string; user_id?: string; union_id?: string }
+        : undefined;
+    if (typeof mention.key !== 'string' || !id) return [];
+    return [{ key: mention.key, id, ...(typeof mention.name === 'string' ? { name: mention.name } : {}) }];
+  });
+}
+
+function toApiMessageItem(item: FeishuMessageItem): ApiMessageItem {
+  return { ...item, mentions: normalizedMentions(item.mentions) };
+}
+
 /**
  * Normalize a single fetched message item (from `im.v1.message.get` or
  * `im.v1.message.list`) into a {@link QuotedContext}. Shared by the reply-quote
@@ -109,10 +142,10 @@ function mapSenderType(raw: unknown): 'user' | 'bot' | undefined {
  * children — callers decide whether to reuse an already-fetched batch or fetch
  * fresh.
  */
-async function normalizeItemToQuoted(
+export async function normalizeItemToQuoted(
   channel: LarkChannel,
-  parent: ApiMessageItem,
-  fetchSubMessages: (mid: string) => Promise<ApiMessageItem[]>,
+  parent: FeishuMessageItem,
+  fetchSubMessages: (mid: string) => Promise<FeishuMessageItem[]>,
 ): Promise<QuotedContext | undefined> {
   if (!parent.message_id) return undefined;
   const senderOpenId = parent.sender?.id;
@@ -127,7 +160,7 @@ async function normalizeItemToQuoted(
       message_type: parent.msg_type ?? 'text',
       content: parent.body?.content ?? '',
       create_time: parent.create_time !== undefined ? String(parent.create_time) : undefined,
-      mentions: parent.mentions,
+      mentions: normalizedMentions(parent.mentions),
     },
   };
 
@@ -135,7 +168,7 @@ async function normalizeItemToQuoted(
   try {
     const normalized = await normalize(fakeRaw, {
       botIdentity,
-      fetchSubMessages,
+      fetchSubMessages: async (mid) => (await fetchSubMessages(mid)).map(toApiMessageItem),
       // We want the raw content here, not the trimmed @bot mention form.
       stripBotMentions: false,
     });
@@ -154,6 +187,10 @@ async function normalizeItemToQuoted(
       // — substitute the raw JSON so Claude can still see what was quoted.
       content: expandInteractiveCard(normalized.content, parent.body?.content),
       rawContentType: parent.msg_type ?? 'text',
+      mentionedOpenIds: normalizedMentions(parent.mentions)?.map((mention) => mention.id.open_id).filter((id): id is string => Boolean(id)),
+      ...(parent.thread_id ? { threadId: parent.thread_id } : {}),
+      ...(parent.root_id ? { rootId: parent.root_id } : {}),
+      ...(parent.parent_id ? { parentId: parent.parent_id } : {}),
     };
   } catch (err) {
     log.warn('quote', 'normalize-failed', {
@@ -193,9 +230,9 @@ export async function fetchTopicContext(
   // batch/quoted context), exclude it from the thread list to avoid duplicates.
   if (rootMessageId && (rootContext || rootAlreadyProvided)) exclude.add(rootMessageId);
 
-  const collected: ApiMessageItem[] = [];
+  const collected: FeishuMessageItem[] = [];
   const seen = new Set<string>();
-  let rootFromList: ApiMessageItem | undefined;
+  let rootFromList: FeishuMessageItem | undefined;
   let pageToken: string | undefined;
   try {
     do {
@@ -208,13 +245,11 @@ export async function fetchTopicContext(
           ...(pageToken ? { page_token: pageToken } : {}),
         },
       });
-      const data = (res as {
-        data?: { items?: ApiMessageItem[]; messages?: ApiMessageItem[]; has_more?: boolean; page_token?: string };
-      }).data;
-      const items = data?.items ?? data?.messages ?? [];
+      const data = res.data;
+      const items = data?.items ?? [];
       for (const item of items) {
         const messageId = item.message_id;
-        if (!messageId || (item as { deleted?: boolean }).deleted) continue;
+        if (!messageId || item.deleted) continue;
         if (messageId === rootMessageId && !rootContext && !rootAlreadyProvided) {
           rootFromList ??= item;
           continue;
@@ -238,7 +273,7 @@ export async function fetchTopicContext(
 
   const out: QuotedContext[] = [];
   for (const item of relevant) {
-    const fetchSubMessages = async (mid: string): Promise<ApiMessageItem[]> => {
+    const fetchSubMessages = async (mid: string): Promise<FeishuMessageItem[]> => {
       const source = mid === item.message_id ? [item] : await fetchSubTreeItems(channel, mid);
       return source.map(preExpandInteractive);
     };
@@ -270,9 +305,9 @@ export async function fetchTopicContext(
 async function fetchSubTreeItems(
   channel: LarkChannel,
   messageId: string,
-): Promise<ApiMessageItem[]> {
+): Promise<FeishuMessageItem[]> {
   try {
-    return await channel.fetchRawMessage(messageId, { cardContentType: 'user_card_content' });
+    return await fetchFeishuMessageItems(channel, messageId);
   } catch (err) {
     log.warn('quote', 'sub-fetch-failed', {
       messageId,

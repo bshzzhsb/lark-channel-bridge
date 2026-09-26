@@ -1,5 +1,6 @@
 import type { LarkChannel } from '@larksuite/channel';
 import { log } from '../core/logger';
+import { fetchFeishuMessageItems } from './quote';
 
 /**
  * Recover a message's topic `thread_id` (omt_*) via the raw `im.v1.message.get`
@@ -31,10 +32,11 @@ export async function lookupMessageThreadContext(
   messageId: string,
 ): Promise<{ threadId?: string; rootId?: string }> {
   try {
-    const [parent] = await channel.fetchRawMessage(messageId);
-    // ApiMessageItem's SDK type omits these fields even though the API returns them.
-    const raw = parent as { thread_id?: string; root_id?: string; parent_id?: string } | undefined;
-    return { threadId: raw?.thread_id, rootId: raw?.root_id ?? raw?.parent_id };
+    const [parent] = await fetchFeishuMessageItems(channel, messageId);
+    return {
+      threadId: parent?.thread_id,
+      rootId: parent?.root_id,
+    };
   } catch (err) {
     log.warn('thread', 'thread-id-lookup-failed', {
       messageId,

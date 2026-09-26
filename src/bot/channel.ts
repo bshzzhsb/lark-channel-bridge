@@ -28,7 +28,13 @@ import {
   type RunState,
 } from '../card/run-state';
 import { renderText } from '../card/text-renderer';
-import { tryHandleCommand, type Controls } from '../commands';
+import {
+  tryHandleCommand,
+  type AgentRunOptions,
+  type AgentRunRequest,
+  type AgentRunResult,
+  type Controls,
+} from '../commands';
 import type { AppConfig } from '../config/schema';
 import {
   getAgentStopGraceMs,
@@ -58,6 +64,8 @@ import type { WorkspaceStore } from '../workspace/store';
 import { ActiveRuns, type RunHandle } from './active-runs';
 import { ChatModeCache, type ChatMode } from './chat-mode-cache';
 import { handleCommentMention } from './comments';
+import { createOnboardOrchestrator } from './onboard-orchestrator';
+import { RunCot } from './cot';
 import { recordRunSessionEvent, startRunFlow } from './run-flow';
 import { commandSessionCatalogIdentity } from './session-catalog-identity';
 import { startKeepalive } from './keepalive';
@@ -71,9 +79,7 @@ import { addWorkingReaction, removeReaction } from './reaction';
 import { fetchKnownChats } from './lark-info';
 import type { AppPaths } from '../config/app-paths';
 import {
-  consumeCotEvents,
   CotClient,
-  CotPublisher,
   finalAnswerOnlyState,
 } from './cot';
 
@@ -282,7 +288,8 @@ export async function startChannel(deps: StartChannelDeps): Promise<BridgeChanne
   const pending = new PendingQueue(DEBOUNCE_MS, (scope, batch) => {
     const firstMsg = batch[0];
     if (!firstMsg) return;
-    pending.block(scope);
+    const unblockScope = blockPendingScope(pending, scope);
+    let unblockRunScope: (() => void) | undefined;
     let runScope = scope;
     void withTrace({ chatId: firstMsg.chatId }, async () => {
       log.info('flush', 'start', {
@@ -309,14 +316,18 @@ export async function startChannel(deps: StartChannelDeps): Promise<BridgeChanne
           });
         }
         const lastMsg = batch[batch.length - 1]!;
-        runScope = scope.startsWith(`${firstMsg.chatId}:root:`)
-          ? scope
-          : !firstMsg.threadId && replyOptions(controls.cfg, lastMsg, mode === 'topic').replyInThread
-          ? rootTopicScope(firstMsg.chatId, lastMsg.messageId)
-          : scope;
-        if (runScope !== scope) {
-          sessions.markTopicRoot(runScope);
-          pending.block(runScope);
+        const sendOpts = replyOptions(controls.cfg, lastMsg, mode === 'topic');
+        // Start a new topic's session with the triggering message. The normal
+        // prompt path still includes that message and any message it quotes;
+        // later replies resolve to this same scope and resume the session.
+        const opensReplyTopic = !scope.startsWith(`${firstMsg.chatId}:root:`)
+          && !firstMsg.threadId
+          && sendOpts.replyInThread;
+        if (opensReplyTopic) {
+          const replyTopicScope = rootTopicScope(firstMsg.chatId, lastMsg.messageId);
+          sessions.markTopicRoot(replyTopicScope);
+          unblockRunScope = blockPendingScope(pending, replyTopicScope);
+          runScope = replyTopicScope;
         }
         await runAgentBatch({
           channel,
@@ -327,7 +338,15 @@ export async function startChannel(deps: StartChannelDeps): Promise<BridgeChanne
           media,
           batch,
           controls,
-          cotClient,
+          cotRun: new RunCot({
+            client: cotClient,
+            mode: () => getCotMessages(controls.cfg),
+            chatId: firstMsg.chatId,
+            originMessageId: lastMsg.messageId,
+            replyInThread: sendOpts.replyInThread,
+            scope: runScope,
+            inputPreview: lastMsg.content,
+          }),
           callbackAuth,
           activePolicyFingerprints,
           lastRunModelByScope,
@@ -337,11 +356,37 @@ export async function startChannel(deps: StartChannelDeps): Promise<BridgeChanne
       } catch (err) {
         log.fail('flush', err);
       } finally {
-        if (runScope !== scope) pending.unblock(runScope);
-        pending.unblock(scope);
+        unblockRunScope?.();
+        unblockScope();
         log.info('flush', 'end');
       }
     });
+  });
+
+  const runAgent = createOnboardOrchestrator({
+    channel,
+    controls,
+    cotClient,
+    pending,
+    sessions,
+    workspaces,
+    execute: ({ message, scope, mode, runOptions, cotRun }) => runAgentBatch({
+      channel,
+      executor,
+      sessions,
+      sessionCatalog,
+      workspaces,
+      media,
+      batch: [message],
+      controls,
+      cotRun,
+      callbackAuth,
+      activePolicyFingerprints,
+      lastRunModelByScope,
+      scope,
+      mode,
+      runOptions,
+    }),
   });
 
   // Counter for stdout reconnect escalation; reset on `reconnected`.
@@ -364,6 +409,7 @@ export async function startChannel(deps: StartChannelDeps): Promise<BridgeChanne
           logThreadModeOverride,
           executor,
           pool,
+          runAgent,
         }),
       ).catch((err) => log.fail('intake', err));
     },
@@ -650,6 +696,7 @@ interface IntakeDeps {
   logThreadModeOverride: LogThreadModeOverride;
   executor: RunExecutor;
   pool: ProcessPool;
+  runAgent: (request: AgentRunRequest) => Promise<AgentRunResult>;
 }
 
 type LogThreadModeOverride = (input: {
@@ -673,6 +720,7 @@ async function intakeMessage(deps: IntakeDeps): Promise<void> {
     logThreadModeOverride,
     executor,
     pool,
+    runAgent,
   } = deps;
   const preview = msg.content.length > 80 ? `${msg.content.slice(0, 80)}…` : msg.content;
   // Resolve scope (and underlying chat mode) once at intake — every
@@ -789,31 +837,42 @@ async function intakeMessage(deps: IntakeDeps): Promise<void> {
     return;
   }
 
-  const handled = await tryHandleCommand({
-    channel,
-    msg: emsg,
-    scope,
-    chatMode,
-    sessions,
-    workspaces,
-    agent,
-    activeRuns,
-    sessionCatalog,
-    sessionCatalogIdentity: await commandSessionCatalogIdentity({
+  // Pause the queue while a command changes or uses this scope's session.
+  // The command's queue policy decides whether to clear or retain messages
+  // before this scope is unblocked.
+  const unblockCommandScope = emsg.content.trim().startsWith('/')
+    ? blockPendingScope(pending, scope) : undefined;
+  let handled: boolean;
+  try {
+    handled = await tryHandleCommand({
+      channel,
       msg: emsg,
       scope,
-      mode: chatMode,
+      chatMode,
+      sessions,
       workspaces,
+      agent,
+      activeRuns,
+      sessionCatalog,
+      sessionCatalogIdentity: await commandSessionCatalogIdentity({
+        msg: emsg,
+        scope,
+        mode: chatMode,
+        workspaces,
+        controls,
+        access: accessDecision,
+      }),
+      runExecutor: executor,
+      clearPending: (targetScope) => { pending.cancel(targetScope); },
+      runAgent,
+      processPool: pool,
       controls,
-      access: accessDecision,
-    }),
-    runExecutor: executor,
-    processPool: pool,
-    controls,
-  });
+    });
+  } finally {
+    unblockCommandScope?.();
+  }
   if (handled) {
-    const dropped = pending.cancel(scope);
-    log.info('intake', 'command', { scope, droppedPending: dropped.length });
+    log.info('intake', 'command', { scope });
     return;
   }
 
@@ -830,15 +889,47 @@ interface RunBatchDeps {
   media: MediaCache;
   batch: NormalizedMessage[];
   controls: Controls;
-  cotClient: CotClient;
+  cotRun: RunCot;
   callbackAuth?: CallbackAuth;
   activePolicyFingerprints: Map<string, string>;
   lastRunModelByScope: Map<string, string>;
   scope: string;
   mode: ChatMode;
+  runOptions?: AgentRunOptions;
 }
 
-async function runAgentBatch(deps: RunBatchDeps): Promise<void> {
+function blockPendingScope(pending: PendingQueue, scope: string): () => void {
+  pending.block(scope);
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    pending.unblock(scope);
+  };
+}
+
+interface RunBatchResult {
+  finalText?: string;
+  sessionId?: string;
+  threadId?: string;
+  cwdRealpath?: string;
+  error?: string;
+  errorReported?: boolean;
+}
+
+async function runAgentBatch(deps: RunBatchDeps): Promise<RunBatchResult | undefined> {
+  const { cotRun } = deps;
+  try {
+    return await executeAgentBatch(deps);
+  } catch (err) {
+    await cotRun.fail(err instanceof Error ? err.message : String(err), 'agent-run-failed', { scope: deps.scope });
+    throw err;
+  } finally {
+    await cotRun.finish('done');
+  }
+}
+
+async function executeAgentBatch(deps: RunBatchDeps): Promise<RunBatchResult | undefined> {
   const {
     channel,
     executor,
@@ -848,12 +939,13 @@ async function runAgentBatch(deps: RunBatchDeps): Promise<void> {
     media,
     batch,
     controls,
-    cotClient,
+    cotRun,
     callbackAuth,
     activePolicyFingerprints,
     lastRunModelByScope,
     scope,
     mode,
+    runOptions,
   } = deps;
   if (batch.length === 0) return;
   const firstMsg = batch[0];
@@ -870,7 +962,9 @@ async function runAgentBatch(deps: RunBatchDeps): Promise<void> {
   const resourceItems = batch.flatMap((m) =>
     m.resources.map((r) => ({ messageId: m.messageId, resource: r })),
   );
-  const attachments = await media.resolve(resourceItems, controls.profileConfig.attachments);
+  const attachments = runOptions?.prompt === undefined
+    ? await media.resolve(resourceItems, controls.profileConfig.attachments)
+    : [];
   if (attachments.length > 0) {
     log.info('media', 'resolved', { count: attachments.length });
     for (const attachment of attachments) {
@@ -889,13 +983,15 @@ async function runAgentBatch(deps: RunBatchDeps): Promise<void> {
   // quoted by multiple messages in one batch only fetches once. Filter out
   // ids that are themselves in the batch — those are already in the prompt.
   const batchIds = new Set(batch.map((m) => m.messageId));
-  const quoteTargets = [
-    ...new Set(
-      batch
-        .map((m) => replyQuoteTargetForMessage(m, mode))
-        .filter((id): id is string => Boolean(id) && !batchIds.has(id!)),
-    ),
-  ];
+  const quoteTargets = runOptions?.prompt !== undefined
+    ? []
+    : [
+        ...new Set(
+          batch
+            .map((m) => replyQuoteTargetForMessage(m, mode))
+            .filter((id): id is string => Boolean(id) && !batchIds.has(id!)),
+        ),
+      ];
   const quotes: QuotedContext[] = [];
   for (const targetId of quoteTargets) {
     const q = await fetchQuotedContext(channel, targetId);
@@ -918,7 +1014,7 @@ async function runAgentBatch(deps: RunBatchDeps): Promise<void> {
   let topicContext: QuotedContext[] = [];
   const hasTopicSession = Boolean(sessions.getRaw(scope)?.sessionId
     || sessionCatalog?.entries().some((entry) => entry.scopeId === scope && entry.status === 'active'));
-  if (mode === 'topic' && threadId && !hasTopicSession) {
+  if (runOptions?.prompt === undefined && mode === 'topic' && threadId && !hasTopicSession) {
     const exclude = new Set(batchIds);
     for (const quote of quotes) exclude.add(quote.messageId);
     const rootMessageId = batch.find((m) => Boolean(m.rootId))?.rootId;
@@ -957,14 +1053,16 @@ async function runAgentBatch(deps: RunBatchDeps): Promise<void> {
       ]
     : undefined;
 
-  const prompt = buildPrompt(
-    batch,
-    attachments,
-    quotes,
-    topicContext,
-    channel.botIdentity,
-    extraInstructions,
-  );
+  const prompt = runOptions?.prompt !== undefined
+    ? [ ...(extraInstructions ?? []), runOptions.prompt ].filter(Boolean).join('\n\n')
+    : buildPrompt(
+        batch,
+        attachments,
+        quotes,
+        topicContext,
+        channel.botIdentity,
+        extraInstructions,
+      );
   log.info('prompt', 'built', {
     promptChars: prompt.length,
     quotes: quotes.length,
@@ -974,7 +1072,7 @@ async function runAgentBatch(deps: RunBatchDeps): Promise<void> {
 
   // Existing topics always stay threaded; ordinary group and DM messages
   // follow their independent profile preferences.
-  const sendOpts = replyOptions(controls.cfg, lastMsg, mode === 'topic');
+  const sendOpts = runOptions?.sendOpts ?? replyOptions(controls.cfg, lastMsg, mode === 'topic');
   log.info('flush', 'reply-target', {
     scope,
     mode,
@@ -995,10 +1093,13 @@ async function runAgentBatch(deps: RunBatchDeps): Promise<void> {
     ...(policyThreadId(scope, chatId, threadId)
       ? { threadId: policyThreadId(scope, chatId, threadId) } : {}),
   };
-  const capability =
+  const profileCapability =
     controls.profileConfig.agentKind === 'codex'
       ? codexCapability(controls.profileConfig)
       : claudeCapability(controls.profileConfig);
+  const capability = runOptions?.access === 'read-only'
+    ? { ...profileCapability, permissions: { ...profileCapability.permissions, maxAccess: 'read-only' as const } }
+    : profileCapability;
   const flow = await startRunFlow({
     scopeId: scope,
     scope: scopeContext,
@@ -1017,7 +1118,7 @@ async function runAgentBatch(deps: RunBatchDeps): Promise<void> {
       profile: controls.profile,
       agent: capability.agentId,
       source: 'im',
-      stage: 'submit',
+      stage: runOptions?.stage ?? 'submit',
     },
   });
   if (!flow.ok) {
@@ -1027,8 +1128,12 @@ async function runAgentBatch(deps: RunBatchDeps): Promise<void> {
       source: 'im',
       code: flow.rejectReason.code,
     });
-    await channel.send(chatId, { markdown: flow.rejectReason.userVisible }, sendOpts);
-    return;
+    await cotRun.fail(flow.rejectReason.userVisible, flow.rejectReason.code, { scope });
+    const errorReported = runOptions?.reply !== 'silent';
+    if (errorReported) {
+      await channel.send(chatId, { markdown: flow.rejectReason.userVisible }, sendOpts);
+    }
+    return { error: flow.rejectReason.userVisible, errorReported };
   }
 
   const { execution, cwdRealpath: cwd } = flow;
@@ -1040,7 +1145,14 @@ async function runAgentBatch(deps: RunBatchDeps): Promise<void> {
   } else {
     log.info('session', 'fresh', { cwd });
   }
+  let observedSessionId: string | undefined;
+  let observedThreadId: string | undefined;
   const recordSession = (evt: AgentEvent): void => {
+    if (evt.type === 'system' || evt.type === 'done') {
+      observedSessionId = evt.sessionId ?? observedSessionId;
+      observedThreadId = evt.threadId ?? observedThreadId;
+    }
+    if (runOptions?.persistSession === false) return;
     recordRunSessionEvent({
       scopeId: scope,
       sessions,
@@ -1082,8 +1194,7 @@ async function runAgentBatch(deps: RunBatchDeps): Promise<void> {
 
   const replyMode = getMessageReplyMode(controls.cfg);
   log.info('flush', 'reply-mode', { mode: replyMode });
-  const cotMessages = getCotMessages(controls.cfg);
-  const cotEnabled = cotMessages !== 'off';
+  const cotEnabled = cotRun.enabled;
 
   // Re-read prefs on every flush so toggling /config mid-stream takes
   // effect immediately. Cheap object lookups, no allocation when on.
@@ -1111,26 +1222,14 @@ async function runAgentBatch(deps: RunBatchDeps): Promise<void> {
   // Add a "Typing" reaction to the triggering message as an instant ack, but
   // never let that outbound API call block agent event draining.
   const reactionPromise =
-    cotEnabled || replyMode === 'card' ? undefined : addWorkingReaction(channel, lastMsg.messageId);
+    cotEnabled || replyMode === 'card' || runOptions?.reply === 'silent'
+      ? undefined
+      : addWorkingReaction(channel, lastMsg.messageId);
 
   try {
     if (cotEnabled) {
-      const cotPublisher = new CotPublisher({
-        client: cotClient,
-        chatId,
-        // COT uses the same origin and reply_in_thread decision as the final
-        // reply, so the two messages appear in the same place.
-        originMessageId: lastMsg.messageId,
-        replyInThread: sendOpts.replyInThread === true,
-        runId: execution.runId,
-        scope,
-        inputPreview: lastMsg.content,
-      });
-      await cotPublisher.start();
-      if (!cotPublisher.disabled) {
-        const cotDone = consumeCotEvents(execution.subscribe(), cotPublisher, {
-          detail: cotMessages,
-        });
+      if (await cotRun.start({ runId: execution.runId, scope })) {
+        const cotDone = cotRun.consume(execution.subscribe());
         const finalState = await processAgentStream(
           handle,
           eventStream,
@@ -1140,13 +1239,19 @@ async function runAgentBatch(deps: RunBatchDeps): Promise<void> {
           async () => {},
         );
         await cotDone;
-        if (cotPublisher.degradedReason) {
+        if (runOptions?.reply === 'silent') return {
+          finalText: finalState.finalText,
+          sessionId: observedSessionId,
+          threadId: observedThreadId,
+          cwdRealpath: cwd,
+        };
+        if (cotRun.degradedReason) {
           await sendCotDegradedNotice({
             channel,
             chatId,
             scope,
             sendOpts,
-            reason: cotPublisher.degradedReason,
+            reason: cotRun.degradedReason,
           });
         }
         await sendFinalReply({
@@ -1161,6 +1266,24 @@ async function runAgentBatch(deps: RunBatchDeps): Promise<void> {
         return;
       }
       log.warn('cot', 'fallback-existing-reply', { reason: 'create-disabled' });
+    }
+
+    if (runOptions?.reply === 'silent') {
+      const finalState = await processAgentStream(
+        handle,
+        eventStream,
+        scope,
+        idleTimeoutMs,
+        recordSession,
+        async () => {},
+      );
+      return {
+        finalText: finalState.finalText,
+        sessionId: observedSessionId,
+        threadId: observedThreadId,
+        cwdRealpath: cwd,
+        ...(cotRun.creationFailed ? { error: '无法创建 COT' } : {}),
+      };
     }
 
     if (replyMode === 'card') {
@@ -1323,6 +1446,9 @@ async function runAgentBatch(deps: RunBatchDeps): Promise<void> {
     }
   } catch (err) {
     log.fail('stream', err);
+    const reason = err instanceof Error ? err.message : String(err);
+    await cotRun.fail(reason);
+    return { error: reason };
   } finally {
     activePolicyFingerprints.delete(scope);
     scheduleWorkingReactionCleanup(channel, lastMsg.messageId, reactionPromise);
@@ -1653,6 +1779,7 @@ async function processAgentStream(
         recordSession(evt);
         continue;
       }
+      if (evt.type === 'done') recordSession(evt);
       if (evt.type === 'usage') {
         const { costUsd, inputTokens, outputTokens } = evt;
         if (costUsd !== undefined || inputTokens !== undefined || outputTokens !== undefined) {
