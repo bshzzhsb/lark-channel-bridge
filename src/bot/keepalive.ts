@@ -1,5 +1,6 @@
 import type { LarkChannel } from '@larksuite/channel';
-import { log, reportMetric } from '../core/logger';
+
+import { log, reportMetric } from '@/core/logger';
 
 /**
  * App-level keepalive loop. Defense-in-depth against silent SDK / network

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { replyOptions } from '../../../src/bot/reply-placement';
-import { getReplyPlacement, type AppConfig } from '../../../src/config/schema';
+
+import { replyOptions } from '@/bot/reply-placement';
+import { type AppConfig,getReplyPlacement } from '@/config/schema';
 
 const cfg = (preferences: AppConfig['preferences'] = {}): AppConfig => ({
   accounts: { app: { id: 'cli_test', secret: 'secret', tenant: 'feishu' } },

@@ -1,4 +1,4 @@
-import type { SandboxMode } from '../../config/profile-schema';
+import type { SandboxMode } from '@/config/profile-schema';
 
 export interface BuildCodexArgsInput {
   cwd: string;

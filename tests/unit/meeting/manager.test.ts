@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { MEETING_DEFAULTS, type MeetingConfig } from '../../../src/config/profile-schema';
-import { MeetingManager, VC_BOT_EVENTS, describeMeetingError } from '../../../src/meeting/manager';
-import { VcApiError, type VcRequestClient } from '../../../src/meeting/api';
+
+import { MEETING_DEFAULTS, type MeetingConfig } from '@/config/profile-schema';
+import { VcApiError, type VcRequestClient } from '@/meeting/api';
+import { describeMeetingError,MeetingManager, VC_BOT_EVENTS } from '@/meeting/manager';
 
 type Handler = (data: unknown) => unknown;
 

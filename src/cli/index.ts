@@ -1,14 +1,9 @@
 import { Command } from 'commander';
+
+import { formatAgentPreflightDiagnostic, getAgentPreflightDiagnostic } from '@/agent/preflight';
+
 import pkg from '../../package.json';
-import { formatAgentPreflightDiagnostic, getAgentPreflightDiagnostic } from '../agent/preflight';
 import { runMigrate } from './commands/migrate';
-import { runKillCli, runPs } from './commands/ps';
-import {
-  runSecretsGet,
-  runSecretsList,
-  runSecretsRemove,
-  runSecretsSet,
-} from './commands/secrets';
 import {
   runProfileCreate,
   runProfileExport,
@@ -16,6 +11,13 @@ import {
   runProfileRemove,
   runProfileUse,
 } from './commands/profile';
+import { runKillCli, runPs } from './commands/ps';
+import {
+  runSecretsGet,
+  runSecretsList,
+  runSecretsRemove,
+  runSecretsSet,
+} from './commands/secrets';
 import {
   runServiceRestart,
   runServiceStart,

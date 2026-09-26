@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+
 import {
   fetchMeetingEvents,
   isMeetingNo,
@@ -7,7 +8,7 @@ import {
   sendMeetingText,
   VcApiError,
   type VcRequestClient,
-} from '../../../src/meeting/api';
+} from '@/meeting/api';
 
 interface Call {
   method: string;

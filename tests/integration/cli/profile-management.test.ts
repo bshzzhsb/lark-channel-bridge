@@ -1,15 +1,17 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { resolveAppPaths } from '../../../src/config/app-paths';
+
+import { runProfileList, runProfileUse } from '@/cli/commands/profile';
+import { resolveAppPaths } from '@/config/app-paths';
 import {
-  createDefaultProfileConfig,
   type AgentKind,
+  createDefaultProfileConfig,
   type RootConfig,
-} from '../../../src/config/profile-schema';
-import { runProfileList, runProfileUse } from '../../../src/cli/commands/profile';
-import type { ProcessEntry } from '../../../src/runtime/registry';
+} from '@/config/profile-schema';
+import type { ProcessEntry } from '@/runtime/registry';
 
 const roots: string[] = [];
 

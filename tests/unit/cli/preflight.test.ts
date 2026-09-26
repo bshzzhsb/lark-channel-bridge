@@ -1,16 +1,18 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { EventEmitter } from 'node:events';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AppConfig } from '../../../src/config/schema';
+
 import {
   createDefaultProfileConfig,
   type RootConfig,
-} from '../../../src/config/profile-schema';
-import { loadRootConfig, saveRootConfig } from '../../../src/config/profile-store';
+} from '@/config/profile-schema';
+import { loadRootConfig, saveRootConfig } from '@/config/profile-store';
+import type { AppConfig } from '@/config/schema';
 
 const mocks = vi.hoisted(() => ({
   spawnProcess: vi.fn(),
@@ -26,16 +28,16 @@ const mocks = vi.hoisted(() => ({
   onSpawn: undefined as undefined | ((callIndex: number, args: string[], env?: NodeJS.ProcessEnv) => void),
 }));
 
-vi.mock('../../../src/platform/atomic-write', async () => {
-  const actual = await vi.importActual<typeof import('../../../src/platform/atomic-write')>(
-    '../../../src/platform/atomic-write',
+vi.mock('@/platform/atomic-write', async () => {
+  const actual = await vi.importActual<typeof import('@/platform/atomic-write')>(
+    '@/platform/atomic-write',
   );
   return {
     ...actual,
     writeFileAtomic: async (
       path: string,
       data: string | Buffer,
-      opts?: import('../../../src/platform/atomic-write').AtomicWriteOptions,
+      opts?: import('@/platform/atomic-write').AtomicWriteOptions,
     ) => {
       const failure = mocks.atomicWriteFailures.find((candidate) => candidate.path === path);
       if (failure) throw failure.err;
@@ -44,7 +46,7 @@ vi.mock('../../../src/platform/atomic-write', async () => {
   };
 });
 
-vi.mock('../../../src/platform/spawn', () => ({
+vi.mock('@/platform/spawn', () => ({
   mergeProcessEnv: (base: NodeJS.ProcessEnv, overrides: NodeJS.ProcessEnv) => ({
     ...base,
     ...overrides,
@@ -53,9 +55,9 @@ vi.mock('../../../src/platform/spawn', () => ({
   spawnProcessSync: mocks.spawnProcessSync,
 }));
 
-const { preFlightChecks } = await import('../../../src/cli/preflight');
-const { resolveAppPaths } = await import('../../../src/config/app-paths');
-const { log } = await import('../../../src/core/logger');
+const { preFlightChecks } = await import('@/cli/preflight');
+const { resolveAppPaths } = await import('@/config/app-paths');
+const { log } = await import('@/core/logger');
 
 const roots: string[] = [];
 

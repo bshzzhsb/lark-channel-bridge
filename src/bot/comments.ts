@@ -1,22 +1,24 @@
+import type { CommentEvent, LarkChannel } from '@larksuite/channel';
+
 import { randomUUID } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import type { CommentEvent, LarkChannel } from '@larksuite/channel';
-import { claudeCapability, codexCapability } from '../agent/capability';
-import type { AgentAdapter, AgentEvent } from '../agent/types';
-import { getAgentStopGraceMs } from '../config/schema';
-import type { Controls } from '../commands';
-import { resolveAppPaths } from '../config/app-paths';
-import { log } from '../core/logger';
-import { evaluateRunPolicy } from '../policy/run-policy';
-import { resolveWorkingDirectory } from '../policy/workspace';
-import { RunRejected } from '../runtime/errors';
+
+import { claudeCapability, codexCapability } from '@/agent/capability';
+import type { AgentAdapter, AgentEvent } from '@/agent/types';
+import type { Controls } from '@/commands';
+import { resolveAppPaths } from '@/config/app-paths';
+import { getAgentStopGraceMs } from '@/config/schema';
+import { log } from '@/core/logger';
+import { evaluateRunPolicy } from '@/policy/run-policy';
+import { resolveWorkingDirectory } from '@/policy/workspace';
+import { RunRejected } from '@/runtime/errors';
+import type { RunExecutor } from '@/runtime/run-executor';
+import type { SessionCatalog } from '@/session/catalog';
+import type { SessionStore } from '@/session/store';
+import type { WorkspaceStore } from '@/workspace/store';
+
 import type { ActiveRuns } from './active-runs';
-import { recordRunSessionEvent } from './run-flow';
-import type { RunExecutor } from '../runtime/run-executor';
-import type { SessionCatalog } from '../session/catalog';
-import type { SessionStore } from '../session/store';
-import type { WorkspaceStore } from '../workspace/store';
 import {
   commentDocumentScopeId,
   commentScopeId,
@@ -24,6 +26,7 @@ import {
   resolveCommentTarget,
   type ResolvedCommentTarget,
 } from './comment-resource';
+import { recordRunSessionEvent } from './run-flow';
 
 export { commentDocumentScopeId, commentScopeId } from './comment-resource';
 

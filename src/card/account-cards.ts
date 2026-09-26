@@ -1,4 +1,4 @@
-import type { TenantBrand } from '../config/schema';
+import type { TenantBrand } from '@/config/schema';
 
 function maskAppId(id: string): string {
   if (id.length < 12) return id;

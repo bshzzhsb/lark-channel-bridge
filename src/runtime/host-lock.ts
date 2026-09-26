@@ -1,6 +1,7 @@
+import * as lockfile from 'proper-lockfile';
+
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import * as lockfile from 'proper-lockfile';
 
 /**
  * A single machine-wide lock for the supervisor process, so a second

@@ -1,23 +1,24 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { EventEmitter } from 'node:events';
 import { readFileSync } from 'node:fs';
 import { PassThrough } from 'node:stream';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const spawnMock = vi.hoisted(() => ({
   spawnProcess: vi.fn(),
 }));
 
-vi.mock('../../../src/platform/spawn', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../src/platform/spawn')>();
+vi.mock('@/platform/spawn', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/platform/spawn')>();
   return { ...actual, spawnProcess: spawnMock.spawnProcess };
 });
 
 import {
   buildBridgeSystemPrompt,
   prefixBridgeSystemPrompt,
-} from '../../../src/agent/bridge-system-prompt';
-import { ClaudeAdapter } from '../../../src/agent/claude/adapter';
-import { CodexAdapter } from '../../../src/agent/codex/adapter';
+} from '@/agent/bridge-system-prompt';
+import { ClaudeAdapter } from '@/agent/claude/adapter';
+import { CodexAdapter } from '@/agent/codex/adapter';
 
 interface FakeChild extends EventEmitter {
   pid: number;

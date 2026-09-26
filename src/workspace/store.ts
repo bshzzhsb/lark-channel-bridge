@@ -1,7 +1,8 @@
 import { readFile } from 'node:fs/promises';
-import { paths } from '../config/paths';
-import { log } from '../core/logger';
-import { writeFileAtomic } from '../platform/atomic-write';
+
+import { paths } from '@/config/paths';
+import { log } from '@/core/logger';
+import { writeFileAtomic } from '@/platform/atomic-write';
 
 interface WorkspaceData {
   chats: Record<string, { cwd: string }>;

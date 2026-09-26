@@ -1,10 +1,10 @@
-import { resolveAppPaths, type AppPaths } from '../../config/app-paths';
-import { getSecret, listSecretIds, removeSecret, setSecret } from '../../config/keystore';
-import { paths } from '../../config/paths';
-import { loadRootConfig, readActiveProfile } from '../../config/profile-store';
-import { secretKeyForApp } from '../../config/schema';
-import { listAllProfiles } from '../../runtime/profile-discovery';
-import { promptPassword } from '../prompt';
+import { promptPassword } from '@/cli/prompt';
+import { type AppPaths,resolveAppPaths } from '@/config/app-paths';
+import { getSecret, listSecretIds, removeSecret, setSecret } from '@/config/keystore';
+import { paths } from '@/config/paths';
+import { loadRootConfig, readActiveProfile } from '@/config/profile-store';
+import { secretKeyForApp } from '@/config/schema';
+import { listAllProfiles } from '@/runtime/profile-discovery';
 
 /**
  * `secrets` CLI surface. Two intended consumers:

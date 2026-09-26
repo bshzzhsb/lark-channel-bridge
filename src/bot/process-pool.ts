@@ -1,4 +1,4 @@
-import { log, reportMetric } from '../core/logger';
+import { log, reportMetric } from '@/core/logger';
 
 /**
  * FIFO concurrency cap for claude runs. Especially useful in topic-group

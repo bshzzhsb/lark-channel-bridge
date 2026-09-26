@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { CodexJsonlTranslator } from '../../../src/agent/codex/jsonl.js';
+
+import { CodexJsonlTranslator } from '@/agent/codex/jsonl.js';
 
 describe('Codex JSONL translator', () => {
   it('translates thread, text, command execution, usage, and completion events', () => {

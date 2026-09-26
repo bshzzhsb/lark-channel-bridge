@@ -1,14 +1,17 @@
+import { afterEach, describe, expect, it } from 'vitest';
+
 import { realpath } from 'node:fs/promises';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import { codexCapability } from '../../../src/agent/capability.js';
-import { ActiveRuns } from '../../../src/bot/active-runs.js';
-import { ProcessPool } from '../../../src/bot/process-pool.js';
-import { startRunFlow } from '../../../src/bot/run-flow.js';
-import { createDefaultProfileConfig } from '../../../src/config/profile-schema.js';
-import { RunExecutor } from '../../../src/runtime/run-executor.js';
-import { SessionStore } from '../../../src/session/store.js';
-import { WorkspaceStore } from '../../../src/workspace/store.js';
+
+import { codexCapability } from '@/agent/capability.js';
+import { ActiveRuns } from '@/bot/active-runs.js';
+import { ProcessPool } from '@/bot/process-pool.js';
+import { startRunFlow } from '@/bot/run-flow.js';
+import { createDefaultProfileConfig } from '@/config/profile-schema.js';
+import { RunExecutor } from '@/runtime/run-executor.js';
+import { SessionStore } from '@/session/store.js';
+import { WorkspaceStore } from '@/workspace/store.js';
+
 import { FakeAgentAdapter } from '../../helpers/fake-agent.js';
 import { createTmpProfile, type TmpProfile } from '../../helpers/tmp-profile.js';
 

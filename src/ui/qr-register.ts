@@ -1,11 +1,14 @@
-import { randomBytes } from 'node:crypto';
 import { registerApp } from '@larksuite/channel';
-import { resolveAppPaths } from '../config/app-paths';
-import { loadRootConfig } from '../config/profile-store';
-import type { TenantBrand } from '../config/schema';
-import type { AgentKind } from '../config/profile-schema';
-import { validateAppCredentials } from '../utils/feishu-auth';
-import { log } from '../core/logger';
+
+import { randomBytes } from 'node:crypto';
+
+import { resolveAppPaths } from '@/config/app-paths';
+import type { AgentKind } from '@/config/profile-schema';
+import { loadRootConfig } from '@/config/profile-store';
+import type { TenantBrand } from '@/config/schema';
+import { log } from '@/core/logger';
+import { validateAppCredentials } from '@/utils/feishu-auth';
+
 import { HttpError } from './http';
 import { writeNewProfile } from './onboard';
 

@@ -1,24 +1,27 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { runProfileCreate } from '../../../src/cli/commands/profile';
-import { resolveAppPaths } from '../../../src/config/app-paths';
+
+import { runProfileCreate } from '@/cli/commands/profile';
+import { resolveAppPaths } from '@/config/app-paths';
+import { getSecret } from '@/config/keystore';
 import {
-  createDefaultProfileConfig,
   type AgentKind,
+  createDefaultProfileConfig,
   type RootConfig,
-} from '../../../src/config/profile-schema';
-import { loadRootConfig } from '../../../src/config/profile-store';
-import { getSecret } from '../../../src/config/keystore';
-import { secretKeyForApp } from '../../../src/config/schema';
+} from '@/config/profile-schema';
+import { loadRootConfig } from '@/config/profile-store';
+import { secretKeyForApp } from '@/config/schema';
+
 import { writeVersionExecutable } from '../../helpers/fake-executable';
 
 const auth = vi.hoisted(() => ({
   validateAppCredentials: vi.fn(async () => ({ ok: true, botName: 'Claude Regression' })),
 }));
 
-vi.mock('../../../src/utils/feishu-auth', () => ({
+vi.mock('@/utils/feishu-auth', () => ({
   validateAppCredentials: auth.validateAppCredentials,
 }));
 

@@ -1,10 +1,12 @@
-import { readFile, readdir, rm, stat, utimes } from 'node:fs/promises';
+import { afterEach, describe, expect, it } from 'vitest';
+
+import { createHash } from 'node:crypto';
+import { readdir, readFile, rm, stat, utimes } from 'node:fs/promises';
+import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createHash } from 'node:crypto';
-import { mkdtemp, writeFile } from 'node:fs/promises';
-import { afterEach, describe, expect, it } from 'vitest';
-import { gcMediaCache, MediaCache } from '../../../src/media/cache.js';
+
+import { gcMediaCache, MediaCache } from '@/media/cache.js';
 
 const cleanups: Array<() => Promise<void>> = [];
 

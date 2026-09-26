@@ -1,8 +1,10 @@
+import { afterEach, describe, expect, it } from 'vitest';
+
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import { resolveWorkingDirectory } from '../../../src/policy/workspace';
+
+import { resolveWorkingDirectory } from '@/policy/workspace';
 
 const cleanups: string[] = [];
 

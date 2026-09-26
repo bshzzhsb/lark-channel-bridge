@@ -1,9 +1,11 @@
+import { afterEach, describe, expect, it } from 'vitest';
+
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import { CallbackAuth } from '../../../src/card/callback-auth.js';
-import { CallbackNonceStore } from '../../../src/card/callback-store.js';
+
+import { CallbackAuth } from '@/card/callback-auth.js';
+import { CallbackNonceStore } from '@/card/callback-store.js';
 
 const cleanups: Array<() => Promise<void>> = [];
 

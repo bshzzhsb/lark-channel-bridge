@@ -1,8 +1,9 @@
+import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { createHash } from 'node:crypto';
-import { resolveAppPaths } from '../config/app-paths';
-import { paths } from '../config/paths';
+
+import { resolveAppPaths } from '@/config/app-paths';
+import { paths } from '@/config/paths';
 
 /**
  * Logical service name — used as the launchd label AND as the systemd

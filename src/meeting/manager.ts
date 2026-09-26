@@ -1,6 +1,7 @@
-import { log } from '../core/logger';
-import type { MeetingConfig } from '../config/profile-schema';
-import { joinMeeting, VcApiError, type RawActivityItem, type VcRequestClient } from './api';
+import type { MeetingConfig } from '@/config/profile-schema';
+import { log } from '@/core/logger';
+
+import { joinMeeting, type RawActivityItem, VcApiError, type VcRequestClient } from './api';
 import { MeetingSession, type MeetingSessionStatus } from './session';
 import type { MeetingEvent } from './types';
 

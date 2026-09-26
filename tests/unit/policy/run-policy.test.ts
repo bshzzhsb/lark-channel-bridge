@@ -1,14 +1,16 @@
+import { describe, expect, it } from 'vitest';
+
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
-import { claudeCapability, codexCapability } from '../../../src/agent/capability';
-import type { AccessMode } from '../../../src/config/permissions';
-import { createDefaultProfileConfig, type ProfileConfig } from '../../../src/config/profile-schema';
+
+import { claudeCapability, codexCapability } from '@/agent/capability';
+import type { AccessMode } from '@/config/permissions';
+import { createDefaultProfileConfig, type ProfileConfig } from '@/config/profile-schema';
 import {
   evaluateRunPolicy,
   type RunPolicyInput,
   type ScopeContext,
-} from '../../../src/policy/run-policy';
+} from '@/policy/run-policy';
 
 describe('run policy', () => {
   it('rejects when the upstream access decision denies the actor', () => {

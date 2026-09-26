@@ -1,14 +1,16 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { CommentEvent } from '@larksuite/channel';
-import type { AgentEvent } from '../../../src/agent/types.js';
-import { ActiveRuns } from '../../../src/bot/active-runs.js';
-import { handleCommentMention } from '../../../src/bot/comments.js';
-import { ProcessPool } from '../../../src/bot/process-pool.js';
-import { createDefaultProfileConfig } from '../../../src/config/profile-schema.js';
-import { RunExecutor } from '../../../src/runtime/run-executor.js';
-import { SessionCatalog } from '../../../src/session/catalog.js';
-import { SessionStore } from '../../../src/session/store.js';
-import { WorkspaceStore } from '../../../src/workspace/store.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import type { AgentEvent } from '@/agent/types.js';
+import { ActiveRuns } from '@/bot/active-runs.js';
+import { handleCommentMention } from '@/bot/comments.js';
+import { ProcessPool } from '@/bot/process-pool.js';
+import { createDefaultProfileConfig } from '@/config/profile-schema.js';
+import { RunExecutor } from '@/runtime/run-executor.js';
+import { SessionCatalog } from '@/session/catalog.js';
+import { SessionStore } from '@/session/store.js';
+import { WorkspaceStore } from '@/workspace/store.js';
+
 import { FakeAgentAdapter } from '../../helpers/fake-agent.js';
 import { makeFakeCommentSurface } from '../../helpers/fake-comment-surface.js';
 import { createTmpProfile, type TmpProfile } from '../../helpers/tmp-profile.js';

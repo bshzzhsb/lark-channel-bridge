@@ -1,10 +1,12 @@
+import { afterEach, describe, expect, it } from 'vitest';
+
 import { chmod, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import { ClaudeAdapter } from '../../../src/agent/claude/adapter.js';
-import { translateEvent } from '../../../src/agent/claude/stream-json.js';
-import type { AgentEvent } from '../../../src/agent/types.js';
+
+import { ClaudeAdapter } from '@/agent/claude/adapter.js';
+import { translateEvent } from '@/agent/claude/stream-json.js';
+import type { AgentEvent } from '@/agent/types.js';
 
 describe('Claude stream-json translator', () => {
   it('translates system init metadata', () => {

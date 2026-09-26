@@ -1,8 +1,10 @@
 import { readFile, rm } from 'node:fs/promises';
-import { dirname } from 'node:path';
 import { mkdir } from 'node:fs/promises';
-import { writeFileAtomic } from '../platform/atomic-write';
-import { log } from '../core/logger';
+import { dirname } from 'node:path';
+
+import { log } from '@/core/logger';
+import { writeFileAtomic } from '@/platform/atomic-write';
+
 import type { UiServerHandle } from './types';
 
 /**

@@ -1,5 +1,6 @@
-import { createHash } from 'node:crypto';
 import type { CommentEvent, LarkChannel } from '@larksuite/channel';
+
+import { createHash } from 'node:crypto';
 
 export interface ResolvedCommentTarget {
   fileToken: string;

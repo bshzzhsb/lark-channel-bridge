@@ -1,13 +1,15 @@
-import { chmod, mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { afterEach, describe, expect, it } from 'vitest';
+
+import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import { createDefaultProfileConfig } from '../../../src/config/profile-schema';
-import { createRootConfig, saveRootConfig } from '../../../src/config/profile-store';
-import { createRuntimeAgent } from '../../../src/cli/commands/start';
-import { resolveProfileRuntime } from '../../../src/runtime/profile-runtime';
 
-const { loadRootConfig } = await import('../../../src/config/profile-store');
+import { createRuntimeAgent } from '@/cli/commands/start';
+import { createDefaultProfileConfig } from '@/config/profile-schema';
+import { createRootConfig, saveRootConfig } from '@/config/profile-store';
+import { resolveProfileRuntime } from '@/runtime/profile-runtime';
+
+const { loadRootConfig } = await import('@/config/profile-store');
 
 const cleanups: Array<() => Promise<void>> = [];
 

@@ -1,14 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { renderCard } from '../../../src/card/run-renderer.js';
+
+import type { AgentEvent } from '@/agent/types.js';
+import { renderCard } from '@/card/run-renderer.js';
 import {
   initialState,
   markIdleTimeout,
   markInterrupted,
   reduce,
   type RunState,
-} from '../../../src/card/run-state.js';
-import { renderText } from '../../../src/card/text-renderer.js';
-import type { AgentEvent } from '../../../src/agent/types.js';
+} from '@/card/run-state.js';
+import { renderText } from '@/card/text-renderer.js';
+
 import { normalizeCard } from '../../helpers/card-normalize.js';
 
 describe('run card renderer snapshots', () => {

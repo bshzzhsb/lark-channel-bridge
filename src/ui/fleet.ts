@@ -1,12 +1,13 @@
-import { resolveAppPaths } from '../config/app-paths';
+import { resolveAppPaths } from '@/config/app-paths';
+import type { AgentKind } from '@/config/profile-schema';
 import {
   loadRootConfig,
   saveRootConfig,
   withConfigFileLock,
   writeActiveProfile,
-} from '../config/profile-store';
-import { listAllProfiles } from '../runtime/profile-discovery';
-import type { AgentKind } from '../config/profile-schema';
+} from '@/config/profile-store';
+import { listAllProfiles } from '@/runtime/profile-discovery';
+
 import { HttpError } from './http';
 import type { UiSupervisor } from './types';
 

@@ -1,5 +1,6 @@
 import type { LarkChannel } from '@larksuite/channel';
-import { log } from '../core/logger';
+
+import { log } from '@/core/logger';
 
 /**
  * Add a "Typing" reaction (敲键盘) to a message to give text-mode users an

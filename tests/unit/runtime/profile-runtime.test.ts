@@ -1,18 +1,21 @@
-import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
-import { delimiter, join } from 'node:path';
-import { tmpdir } from 'node:os';
-import { mkdtemp } from 'node:fs/promises';
 import { describe, expect, it, vi } from 'vitest';
+
+import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { delimiter, join } from 'node:path';
+
+import { resolveAppPaths } from '@/config/app-paths';
+import { getSecret } from '@/config/keystore';
+import { createDefaultProfileConfig } from '@/config/profile-schema';
+import { secretKeyForApp } from '@/config/schema';
+import { legacyLarkCliSourceOverlayPaths } from '@/lark-cli/legacy-source-overlay';
+import { writeLarkCliSourceProjection } from '@/lark-cli/profile-projection';
 import {
   materializeEnvSecretForService,
   resolveProfileRuntime,
-} from '../../../src/runtime/profile-runtime';
-import { createDefaultProfileConfig } from '../../../src/config/profile-schema';
-import { resolveAppPaths } from '../../../src/config/app-paths';
-import { getSecret } from '../../../src/config/keystore';
-import { secretKeyForApp } from '../../../src/config/schema';
-import { legacyLarkCliSourceOverlayPaths } from '../../../src/lark-cli/legacy-source-overlay';
-import { writeLarkCliSourceProjection } from '../../../src/lark-cli/profile-projection';
+} from '@/runtime/profile-runtime';
+
 import { writeVersionExecutable } from '../../helpers/fake-executable';
 
 const wizard = vi.hoisted(() => ({
@@ -37,11 +40,11 @@ const auth = vi.hoisted(() => {
   };
 });
 
-vi.mock('../../../src/bot/wizard', () => ({
+vi.mock('@/bot/wizard', () => ({
   runRegistrationWizard: vi.fn(async () => wizard.next),
 }));
 
-vi.mock('../../../src/utils/feishu-auth', () => ({
+vi.mock('@/utils/feishu-auth', () => ({
   validateAppCredentials: auth.validateAppCredentials,
 }));
 

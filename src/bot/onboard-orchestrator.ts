@@ -1,9 +1,11 @@
 import type { LarkChannel, NormalizedMessage } from '@larksuite/channel';
-import type { AgentRunOptions, AgentRunRequest, AgentRunResult, Controls } from '../commands';
-import { getCotMessages } from '../config/schema';
-import { withTrace } from '../core/logger';
-import type { SessionStore } from '../session/store';
-import type { WorkspaceStore } from '../workspace/store';
+
+import type { AgentRunOptions, AgentRunRequest, AgentRunResult, Controls } from '@/commands';
+import { getCotMessages } from '@/config/schema';
+import { withTrace } from '@/core/logger';
+import type { SessionStore } from '@/session/store';
+import type { WorkspaceStore } from '@/workspace/store';
+
 import type { CotClient } from './cot';
 import { RunCot } from './cot';
 import type { PendingQueue } from './pending-queue';

@@ -1,16 +1,19 @@
+import { afterEach, describe, expect, it } from 'vitest';
+
 import { readFile } from 'node:fs/promises';
 import { realpath } from 'node:fs/promises';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import { claudeCapability } from '../../../src/agent/capability';
-import { ActiveRuns } from '../../../src/bot/active-runs';
-import { ProcessPool } from '../../../src/bot/process-pool';
-import { startRunFlow } from '../../../src/bot/run-flow';
-import { createDefaultProfileConfig } from '../../../src/config/profile-schema';
-import { closeLogger, configureLogger, flushLogger } from '../../../src/core/logger';
-import { RunExecutor } from '../../../src/runtime/run-executor';
-import { SessionStore } from '../../../src/session/store';
-import { WorkspaceStore } from '../../../src/workspace/store';
+
+import { claudeCapability } from '@/agent/capability';
+import { ActiveRuns } from '@/bot/active-runs';
+import { ProcessPool } from '@/bot/process-pool';
+import { startRunFlow } from '@/bot/run-flow';
+import { createDefaultProfileConfig } from '@/config/profile-schema';
+import { closeLogger, configureLogger, flushLogger } from '@/core/logger';
+import { RunExecutor } from '@/runtime/run-executor';
+import { SessionStore } from '@/session/store';
+import { WorkspaceStore } from '@/workspace/store';
+
 import { FakeAgentAdapter } from '../../helpers/fake-agent';
 import { createTmpProfile, type TmpProfile } from '../../helpers/tmp-profile';
 

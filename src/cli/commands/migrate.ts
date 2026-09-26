@@ -1,20 +1,22 @@
-import { mkdir, readFile, readdir, rename, rm, stat } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, rm, stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { createBootstrapCodexConfig } from '../profile-bootstrap';
-import { promptLine } from '../prompt';
-import { stopProcessEntry } from './ps';
+
+import { createBootstrapCodexConfig } from '@/cli/profile-bootstrap';
+import { promptLine } from '@/cli/prompt';
 import {
   ActiveBridgeMigrationConflictError,
-  migrateV1ToV2,
   type ActiveBridgeMigrationProcess,
+  migrateV1ToV2,
   type MigrateV2Options,
   type MigrateV2Result,
-} from '../../config/migrate-v2';
-import { legacyPaths, paths } from '../../config/paths';
-import { agentKindFromString } from '../../config/profile-store';
-import type { RootConfig } from '../../config/profile-schema';
-import { isComplete, type AppCredentials, type AppConfig } from '../../config/schema';
-import { saveConfig } from '../../config/store';
+} from '@/config/migrate-v2';
+import { legacyPaths, paths } from '@/config/paths';
+import type { RootConfig } from '@/config/profile-schema';
+import { agentKindFromString } from '@/config/profile-store';
+import { type AppConfig,type AppCredentials, isComplete } from '@/config/schema';
+import { saveConfig } from '@/config/store';
+
+import { stopProcessEntry } from './ps';
 
 export interface MigrateOptions {
   config?: string;

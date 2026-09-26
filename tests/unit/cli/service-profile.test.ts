@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ServiceAdapter } from '../../../src/daemon/service-adapter';
-import type { ProcessEntry } from '../../../src/runtime/registry';
+
+import type { ServiceAdapter } from '@/daemon/service-adapter';
+import type { ProcessEntry } from '@/runtime/registry';
 
 const mocks = vi.hoisted(() => ({
   adapter: undefined as unknown as ServiceAdapter,
@@ -15,33 +16,33 @@ const mocks = vi.hoisted(() => ({
   loadRootConfig: vi.fn(),
 }));
 
-vi.mock('../../../src/daemon/service-adapter', () => ({
+vi.mock('@/daemon/service-adapter', () => ({
   getServiceAdapter: mocks.getServiceAdapter,
 }));
 
-vi.mock('../../../src/runtime/profile-runtime', () => ({
+vi.mock('@/runtime/profile-runtime', () => ({
   materializeEnvSecretForService: mocks.materializeEnvSecretForService,
   resolveProfileRuntime: mocks.resolveProfileRuntime,
 }));
 
-vi.mock('../../../src/runtime/registry', () => ({
+vi.mock('@/runtime/registry', () => ({
   readAndPrune: mocks.readAndPrune,
 }));
 
-vi.mock('../../../src/runtime/locks', () => ({
+vi.mock('@/runtime/locks', () => ({
   checkRuntimeLock: mocks.checkRuntimeLock,
 }));
 
-vi.mock('../../../src/cli/commands/ps', () => ({
+vi.mock('@/cli/commands/ps', () => ({
   stopProcessEntry: mocks.stopProcessEntry,
 }));
 
-vi.mock('../../../src/config/profile-store', () => ({
+vi.mock('@/config/profile-store', () => ({
   readActiveProfile: mocks.readActiveProfile,
   loadRootConfig: mocks.loadRootConfig,
 }));
 
-vi.mock('../../../src/config/paths', () => ({
+vi.mock('@/config/paths', () => ({
   paths: {
     rootDir: '/tmp/lark-channel-home',
     configFile: '/tmp/lark-channel-home/config.json',
@@ -49,17 +50,17 @@ vi.mock('../../../src/config/paths', () => ({
   },
 }));
 
-vi.mock('../../../src/daemon/paths', () => ({
+vi.mock('@/daemon/paths', () => ({
   daemonStdoutPath: (profile: string) => `/tmp/lark-channel-home/profiles/${profile}/logs/daemon/stdout.log`,
   daemonStderrPath: (profile: string) => `/tmp/lark-channel-home/profiles/${profile}/logs/daemon/stderr.log`,
   SUPERVISOR_SERVICE_ID: 'supervisor',
 }));
 
-vi.mock('../../../src/cli/preflight', () => ({
+vi.mock('@/cli/preflight', () => ({
   preFlightChecks: mocks.preFlightChecks,
 }));
 
-const { runServiceStart, runServiceStatus, runServiceStop, runServiceUnregister } = await import('../../../src/cli/commands/service');
+const { runServiceStart, runServiceStatus, runServiceStop, runServiceUnregister } = await import('@/cli/commands/service');
 
 describe('profile-aware service commands', () => {
   beforeEach(() => {

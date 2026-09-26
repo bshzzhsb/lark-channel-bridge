@@ -1,5 +1,5 @@
-import type { AgentEvent } from '../types';
-import { log } from '../../core/logger';
+import type { AgentEvent } from '@/agent/types';
+import { log } from '@/core/logger';
 
 export type CodexFinishReason = 'failed' | 'interrupted' | 'timeout';
 

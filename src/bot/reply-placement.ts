@@ -1,5 +1,6 @@
 import type { NormalizedMessage } from '@larksuite/channel';
-import { getReplyPlacement, type AppConfig } from '../config/schema';
+
+import { type AppConfig,getReplyPlacement } from '@/config/schema';
 
 export function replyOptions(
   cfg: AppConfig,

@@ -1,10 +1,12 @@
 import { readFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
+
+import { writeFileAtomic } from '@/platform/atomic-write';
+
 import type { AppPaths } from './app-paths';
 import { paths } from './paths';
 import type { AppConfig, AppPreferences, TenantBrand } from './schema';
 import { secretKeyForApp } from './schema';
-import { writeFileAtomic } from '../platform/atomic-write';
 
 export async function loadConfig(path: string = paths.configFile): Promise<Partial<AppConfig>> {
   try {

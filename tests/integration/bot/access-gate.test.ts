@@ -1,18 +1,21 @@
+import type { CommentEvent, NormalizedMessage } from '@larksuite/channel';
+import { afterEach, describe, expect, it } from 'vitest';
+
 import { mkdir, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import type { CommentEvent, NormalizedMessage } from '@larksuite/channel';
-import { handleCommentMention } from '../../../src/bot/comments';
-import { tryHandleCommand, type CommandContext, type Controls } from '../../../src/commands';
-import { createDefaultProfileConfig, type ProfileConfig } from '../../../src/config/profile-schema';
-import { ActiveRuns } from '../../../src/bot/active-runs';
-import { ProcessPool } from '../../../src/bot/process-pool';
-import { RunExecutor } from '../../../src/runtime/run-executor';
-import { SessionStore } from '../../../src/session/store';
-import { WorkspaceStore } from '../../../src/workspace/store';
-import { createFakeChannel, type FakeChannel } from '../../helpers/fake-channel';
+
+import { ActiveRuns } from '@/bot/active-runs';
+import { handleCommentMention } from '@/bot/comments';
+import { ProcessPool } from '@/bot/process-pool';
+import { type CommandContext, type Controls,tryHandleCommand } from '@/commands';
+import { createDefaultProfileConfig, type ProfileConfig } from '@/config/profile-schema';
+import { RunExecutor } from '@/runtime/run-executor';
+import { SessionStore } from '@/session/store';
+import { WorkspaceStore } from '@/workspace/store';
+
 import { FakeAgentAdapter } from '../../helpers/fake-agent';
+import { createFakeChannel, type FakeChannel } from '../../helpers/fake-channel';
 import { makeFakeCommentSurface } from '../../helpers/fake-comment-surface';
 
 const roots: string[] = [];

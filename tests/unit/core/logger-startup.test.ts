@@ -1,7 +1,8 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { mkdtemp, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const roots: string[] = [];
 
@@ -19,7 +20,7 @@ describe('logger startup behavior', () => {
     process.env.LARK_CHANNEL_HOME = root;
     vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    const { flushLogger, log } = await import('../../../src/core/logger.js');
+    const { flushLogger, log } = await import('@/core/logger.js');
     log.warn('startup', 'before-configure', { detail: 'early warning' });
     await flushLogger();
 

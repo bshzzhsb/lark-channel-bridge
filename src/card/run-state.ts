@@ -1,4 +1,4 @@
-import type { AgentEvent } from '../agent/types';
+import type { AgentEvent } from '@/agent/types';
 
 export type ToolStatus = 'running' | 'done' | 'error';
 

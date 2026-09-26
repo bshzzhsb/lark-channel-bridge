@@ -1,8 +1,10 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { mkdir, mkdtemp, rm, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buildAgentPrompt } from '../../../src/agent/prompt.js';
+
+import { buildAgentPrompt } from '@/agent/prompt.js';
 
 describe('Claude local session history', () => {
   const cleanup: string[] = [];
@@ -24,7 +26,7 @@ describe('Claude local session history', () => {
       const actual = await vi.importActual<typeof import('node:os')>('node:os');
       return { ...actual, homedir: () => home };
     });
-    const { listRecentSessions } = await import('../../../src/session/history.js');
+    const { listRecentSessions } = await import('@/session/history.js');
 
     const cwd = '/Users/example/.lark-channel-workspaces/claude/default_open.sdks';
     const projectDir = join(
@@ -59,7 +61,7 @@ describe('Claude local session history', () => {
       const actual = await vi.importActual<typeof import('node:os')>('node:os');
       return { ...actual, homedir: () => home };
     });
-    const { listRecentSessions } = await import('../../../src/session/history.js');
+    const { listRecentSessions } = await import('@/session/history.js');
 
     const cwd = '/repo';
     const projectDir = join(home, '.claude', 'projects', '-repo');

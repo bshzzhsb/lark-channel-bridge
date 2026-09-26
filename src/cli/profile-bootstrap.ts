@@ -1,9 +1,11 @@
 import { mkdir, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
-import { AgentPreflightError } from '../agent/preflight';
-import { createDefaultProfileConfig, type AgentKind, type ProfileConfig } from '../config/profile-schema';
-import type { AppConfig } from '../config/schema';
-import { resolveWorkingDirectory } from '../policy/workspace';
+
+import { AgentPreflightError } from '@/agent/preflight';
+import { type AgentKind, createDefaultProfileConfig, type ProfileConfig } from '@/config/profile-schema';
+import type { AppConfig } from '@/config/schema';
+import { resolveWorkingDirectory } from '@/policy/workspace';
+
 import { resolveExecutablePath } from './agent-detection';
 
 export interface BootstrapProfileInput {

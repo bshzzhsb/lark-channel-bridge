@@ -1,7 +1,8 @@
-import type { AgentAvailability } from './preflight';
-import type { ClaudePermissionMode, CodexSandboxMode } from '../config/permissions';
+import type { ClaudePermissionMode, CodexSandboxMode } from '@/config/permissions';
 
-export type { ClaudePermissionMode } from '../config/permissions';
+import type { AgentAvailability } from './preflight';
+
+export type { ClaudePermissionMode } from '@/config/permissions';
 
 export type AgentEvent =
   | { type: 'system'; sessionId?: string; threadId?: string; cwd?: string; model?: string }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ChatModeCache } from '../../../src/bot/chat-mode-cache.js';
+
+import { ChatModeCache } from '@/bot/chat-mode-cache.js';
 
 describe('ChatModeCache', () => {
   it('caches group mode to avoid a chat.get round-trip per message', async () => {

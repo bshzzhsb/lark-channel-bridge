@@ -1,14 +1,16 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import {
-  configureLogger,
   closeLogger,
+  configureLogger,
   flushLogger,
   log,
   sanitizeLogsForDoctor,
-} from '../../../src/core/logger.js';
+} from '@/core/logger.js';
 
 let logsDir = '';
 

@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
+
 import {
   buildCommentPrompt,
   extractCommentQuestionFromReplies,
   stripMarkdown,
-} from '../../../src/bot/comments.js';
+} from '@/bot/comments.js';
 
 describe('comment parser', () => {
   it('keeps docs_link text in the question and omits person mentions', () => {

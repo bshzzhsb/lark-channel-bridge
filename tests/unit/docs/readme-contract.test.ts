@@ -1,5 +1,6 @@
-import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
+
+import { readFile } from 'node:fs/promises';
 
 describe('README runtime contract', () => {
   it('documents maintained runtime surfaces in user-visible docs', async () => {

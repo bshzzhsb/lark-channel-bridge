@@ -1,7 +1,8 @@
-import type { AgentEvent } from '../../agent/types';
-import type { CotMessagesMode } from '../../config/schema';
-import { log } from '../../core/logger';
-import { toolHeaderText } from '../../card/tool-render';
+import type { AgentEvent } from '@/agent/types';
+import { toolHeaderText } from '@/card/tool-render';
+import type { CotMessagesMode } from '@/config/schema';
+import { log } from '@/core/logger';
+
 import type { CotPublisher } from './publisher';
 
 const COT_TOOL_OUTPUT_MAX = 1200;

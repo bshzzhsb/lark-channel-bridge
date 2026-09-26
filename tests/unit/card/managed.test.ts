@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { sendManagedCard, updateManagedCard } from '../../../src/card/managed.js';
+
+import { sendManagedCard, updateManagedCard } from '@/card/managed.js';
 
 describe('managed card sending', () => {
   it('falls back to sending the raw card when the card_id message is rejected', async () => {

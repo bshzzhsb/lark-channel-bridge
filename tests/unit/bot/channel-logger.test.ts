@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import * as channelModule from '../../../src/bot/channel.js';
+
+import * as channelModule from '@/bot/channel/index.js';
 
 describe('Lark SDK logger noise filtering', () => {
   it('suppresses optional wiki-node permission failures that fall back to the original file token', () => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildCodexArgs } from '../../../src/agent/codex/argv.js';
+
+import { buildCodexArgs } from '@/agent/codex/argv.js';
 
 describe('Codex argv contract', () => {
   it('builds the fresh exec argv without putting the prompt in argv', () => {

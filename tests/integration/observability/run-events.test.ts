@@ -1,11 +1,14 @@
+import { afterEach, describe, expect, it } from 'vitest';
+
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import { ActiveRuns } from '../../../src/bot/active-runs.js';
-import { ProcessPool } from '../../../src/bot/process-pool.js';
-import { closeLogger, configureLogger, flushLogger } from '../../../src/core/logger.js';
-import type { RunPolicyAllow } from '../../../src/policy/run-policy.js';
-import { RunExecutor } from '../../../src/runtime/run-executor.js';
+
+import { ActiveRuns } from '@/bot/active-runs.js';
+import { ProcessPool } from '@/bot/process-pool.js';
+import { closeLogger, configureLogger, flushLogger } from '@/core/logger.js';
+import type { RunPolicyAllow } from '@/policy/run-policy.js';
+import { RunExecutor } from '@/runtime/run-executor.js';
+
 import { FakeAgentAdapter } from '../../helpers/fake-agent.js';
 import { createTmpProfile, type TmpProfile } from '../../helpers/tmp-profile.js';
 

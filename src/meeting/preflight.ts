@@ -1,7 +1,7 @@
-import { resolveAppPaths } from '../config/app-paths';
-import { buildLarkChannelEnv } from '../agent/lark-channel-env';
-import { mergeProcessEnv, spawnProcess } from '../platform/spawn';
-import { log } from '../core/logger';
+import { buildLarkChannelEnv } from '@/agent/lark-channel-env';
+import { resolveAppPaths } from '@/config/app-paths';
+import { log } from '@/core/logger';
+import { mergeProcessEnv, spawnProcess } from '@/platform/spawn';
 
 /**
  * Pre-flight for the in-meeting agent: does the **app (bot) identity** actually

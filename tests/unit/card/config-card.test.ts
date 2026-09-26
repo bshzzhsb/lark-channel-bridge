@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { configFormCard, type ConfigFormOpts } from '../../../src/card/config-card';
+
+import { configFormCard, type ConfigFormOpts } from '@/card/config-card';
 
 const base: ConfigFormOpts = {
   agentKind: 'claude',

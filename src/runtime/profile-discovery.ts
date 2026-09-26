@@ -1,8 +1,9 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { resolveAppPaths } from '../config/app-paths';
-import { loadRootConfig, readActiveProfile } from '../config/profile-store';
-import type { AgentKind } from '../config/profile-schema';
+
+import { resolveAppPaths } from '@/config/app-paths';
+import type { AgentKind } from '@/config/profile-schema';
+import { loadRootConfig, readActiveProfile } from '@/config/profile-store';
 
 export interface DiscoveredProfile {
   name: string;

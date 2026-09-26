@@ -1,4 +1,4 @@
-import type { RunState } from '../../card/run-state';
+import type { RunState } from '@/card/run-state';
 
 export function finalAnswerOnlyState(state: RunState): RunState {
   return {

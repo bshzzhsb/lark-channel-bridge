@@ -1,9 +1,11 @@
+import { afterEach, describe, expect, it } from 'vitest';
+
 import { mkdir, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import { resolveAppPaths } from '../../../src/config/app-paths';
-import { withProfileAndAppLocks } from '../../../src/runtime/locks';
+
+import { resolveAppPaths } from '@/config/app-paths';
+import { withProfileAndAppLocks } from '@/runtime/locks';
 
 const roots: string[] = [];
 

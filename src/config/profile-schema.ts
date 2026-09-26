@@ -1,19 +1,18 @@
+import {
+  type AccessMode,
+  type CodexSandboxMode,
+  normalizePermissions,
+  type PermissionConfig,
+  type PermissionSource,
+  permissionsToLegacySandbox,
+} from './permissions';
 import type {
   AppCredentials,
   AppPreferences,
   MessageReplyMode,
-  ReplyPlacement,
   SecretsConfig,
 } from './schema';
 import { isReplyPlacement } from './schema';
-import {
-  normalizePermissions,
-  permissionsToLegacySandbox,
-  type AccessMode,
-  type CodexSandboxMode,
-  type PermissionConfig,
-  type PermissionSource,
-} from './permissions';
 
 export type AgentKind = 'claude' | 'codex';
 export type SandboxMode = CodexSandboxMode;

@@ -2,6 +2,9 @@ import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
+
+import { paths } from '@/config/paths';
+
 import {
   daemonLogDir,
   daemonStderrPath,
@@ -9,7 +12,6 @@ import {
   systemdUnitName,
   systemdUnitPath,
 } from './paths';
-import { paths } from '../config/paths';
 
 export interface UnitInputs {
   /** Absolute path to the node binary that should run the bridge. */

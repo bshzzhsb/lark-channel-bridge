@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { BRIDGE_SYSTEM_PROMPT } from '../../../src/agent/bridge-system-prompt';
-import { claudeCapability, codexCapability } from '../../../src/agent/capability';
-import { createDefaultProfileConfig } from '../../../src/config/profile-schema';
+
+import { BRIDGE_SYSTEM_PROMPT } from '@/agent/bridge-system-prompt';
+import { claudeCapability, codexCapability } from '@/agent/capability';
+import { createDefaultProfileConfig } from '@/config/profile-schema';
 
 describe('agent capability contract', () => {
   it('defines Claude capability with legacy callback marker compatibility', () => {

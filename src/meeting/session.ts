@@ -1,13 +1,14 @@
-import { log } from '../core/logger';
-import type { MeetingConfig } from '../config/profile-schema';
+import type { MeetingConfig } from '@/config/profile-schema';
+import { log } from '@/core/logger';
+
 import {
   fetchMeetingEvents,
   leaveMeeting,
-  sendMeetingText,
   type RawActivityItem,
+  sendMeetingText,
   type VcRequestClient,
 } from './api';
-import { unpackActivity, type MeetingEvent, type TranscriptEvent } from './types';
+import { type MeetingEvent, type TranscriptEvent,unpackActivity } from './types';
 
 export type MeetingEventSourceKind = 'push' | 'poll';
 

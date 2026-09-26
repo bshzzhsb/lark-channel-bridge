@@ -1,5 +1,6 @@
+import { log } from '@/core/logger';
+
 import type { RuntimeControls } from './access';
-import { log } from '../core/logger';
 
 export const OWNER_REFRESH_INTERVAL_MS = 30 * 60 * 1000;
 

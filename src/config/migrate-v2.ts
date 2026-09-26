@@ -8,17 +8,19 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+
+import { writeFileAtomic } from '@/platform/atomic-write';
+import { resolveWorkingDirectory } from '@/policy/workspace';
+
 import { resolveAppPaths } from './app-paths';
 import {
-  createDefaultProfileConfig,
   type AgentKind,
   type CodexConfig,
+  createDefaultProfileConfig,
   type RootConfig,
 } from './profile-schema';
 import { markPermissionDefaultsMigration, saveRootConfig } from './profile-store';
 import type { AppConfig } from './schema';
-import { writeFileAtomic } from '../platform/atomic-write';
-import { resolveWorkingDirectory } from '../policy/workspace';
 
 export interface MigrateV2Options {
   rootDir?: string;

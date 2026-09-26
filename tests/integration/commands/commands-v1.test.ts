@@ -1,13 +1,16 @@
+import type { NormalizedMessage } from '@larksuite/channel';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { mkdir, realpath, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { NormalizedMessage } from '@larksuite/channel';
-import { ActiveRuns } from '../../../src/bot/active-runs.js';
-import { tryHandleCommand, type CommandContext, type Controls } from '../../../src/commands/index.js';
-import { createDefaultProfileConfig, type ProfileConfig } from '../../../src/config/profile-schema.js';
-import { createRootConfig, loadRootConfig, saveRootConfig } from '../../../src/config/profile-store.js';
-import { SessionStore } from '../../../src/session/store.js';
-import { WorkspaceStore } from '../../../src/workspace/store.js';
+
+import { ActiveRuns } from '@/bot/active-runs.js';
+import { type CommandContext, type Controls,tryHandleCommand } from '@/commands/index.js';
+import { createDefaultProfileConfig, type ProfileConfig } from '@/config/profile-schema.js';
+import { createRootConfig, loadRootConfig, saveRootConfig } from '@/config/profile-store.js';
+import { SessionStore } from '@/session/store.js';
+import { WorkspaceStore } from '@/workspace/store.js';
+
 import { createFakeAgent } from '../../helpers/fake-agent.js';
 import { createFakeChannel, type FakeChannel } from '../../helpers/fake-channel.js';
 import { createTmpProfile, type TmpProfile } from '../../helpers/tmp-profile.js';

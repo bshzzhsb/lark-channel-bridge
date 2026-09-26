@@ -1,3 +1,5 @@
+import * as lockfile from 'proper-lockfile';
+
 import { randomBytes } from 'node:crypto';
 import {
   closeSync,
@@ -12,12 +14,13 @@ import {
 } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
-import * as lockfile from 'proper-lockfile';
-import { resolveAppPaths } from '../config/app-paths';
-import { paths } from '../config/paths';
-import type { AgentKind } from '../config/profile-schema';
-import type { TenantBrand } from '../config/schema';
-import { writeFileAtomic } from '../platform/atomic-write';
+
+import { resolveAppPaths } from '@/config/app-paths';
+import { paths } from '@/config/paths';
+import type { AgentKind } from '@/config/profile-schema';
+import type { TenantBrand } from '@/config/schema';
+import { writeFileAtomic } from '@/platform/atomic-write';
+
 import { checkRuntimeLock } from './locks';
 
 /**

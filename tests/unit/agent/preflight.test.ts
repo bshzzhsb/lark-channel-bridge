@@ -1,26 +1,28 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { EventEmitter } from 'node:events';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import {
   AgentPreflightError,
   checkAgentVersion,
   formatAgentPreflightError,
-} from '../../../src/agent/preflight.js';
+} from '@/agent/preflight.js';
 
 describe('agent preflight diagnostics', () => {
   afterEach(() => {
-    vi.doUnmock('../../../src/platform/spawn');
+    vi.doUnmock('@/platform/spawn');
     vi.resetModules();
   });
 
   it('classifies version checks killed by a signal without exposing code null', async () => {
     vi.resetModules();
-    vi.doMock('../../../src/platform/spawn', () => ({
+    vi.doMock('@/platform/spawn', () => ({
       spawnProcess: vi.fn(() => fakeSignaledChild()),
     }));
-    const { checkAgentVersion } = await import('../../../src/agent/preflight.js');
+    const { checkAgentVersion } = await import('@/agent/preflight.js');
 
     await expect(
       checkAgentVersion({

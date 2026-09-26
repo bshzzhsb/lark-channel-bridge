@@ -1,5 +1,6 @@
-import type { AccessMode } from '../config/permissions';
-import type { ProfileConfig } from '../config/profile-schema';
+import type { AccessMode } from '@/config/permissions';
+import type { ProfileConfig } from '@/config/profile-schema';
+
 import { BRIDGE_SYSTEM_PROMPT } from './bridge-system-prompt';
 
 export type AgentCapabilityId = 'claude' | 'codex';

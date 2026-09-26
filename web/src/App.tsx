@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { apiGet } from "@/lib/api";
-import type { OnboardState, Status } from "@/lib/types";
+import { type ReactNode,useCallback, useEffect, useState } from "react";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Toaster } from "@/components/ui/sonner";
-import { ProfilesView } from "@/views/ProfilesView";
-import { ProfileDetail } from "@/views/ProfileDetail";
+import { apiGet } from "@/lib/api";
+import type { OnboardState, Status } from "@/lib/types";
 import { OnboardWizard } from "@/views/OnboardWizard";
+import { ProfileDetail } from "@/views/ProfileDetail";
+import { ProfilesView } from "@/views/ProfilesView";
 
 export function App() {
   const [onboard, setOnboard] = useState<OnboardState | null>(null);

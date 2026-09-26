@@ -4,7 +4,9 @@ import type {
   RawMessageEvent,
 } from '@larksuite/channel';
 import { normalize } from '@larksuite/channel';
-import { log } from '../core/logger';
+
+import { log } from '@/core/logger';
+
 import { expandInteractiveCard } from './interactive-card';
 
 type MessageGetResponse = Awaited<ReturnType<LarkChannel['rawClient']['im']['v1']['message']['get']>>;

@@ -2,14 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ startRunFlow: vi.fn() }));
 
-vi.mock('../../../src/bot/run-flow', () => ({ startRunFlow: mocks.startRunFlow }));
+vi.mock('@/bot/run-flow', () => ({ startRunFlow: mocks.startRunFlow }));
 
 const { summarizeEndedMeeting, resolveSummaryTarget } = await import(
-  '../../../src/meeting/orchestrator'
+  '@/meeting/orchestrator'
 );
-const { MeetingSession } = await import('../../../src/meeting/session');
+const { MeetingSession } = await import('@/meeting/session');
 const { MEETING_DEFAULTS, createDefaultProfileConfig } = await import(
-  '../../../src/config/profile-schema'
+  '@/config/profile-schema'
 );
 
 /** A real ProfileConfig — capability resolution reads more than `agentKind`. */
@@ -22,8 +22,8 @@ function profileConfig(meeting: MeetingConfig) {
   return pc;
 }
 
-import type { MeetingConfig } from '../../../src/config/profile-schema';
-import type { VcRequestClient } from '../../../src/meeting/api';
+import type { MeetingConfig } from '@/config/profile-schema';
+import type { VcRequestClient } from '@/meeting/api';
 
 const noopClient: VcRequestClient = { request: vi.fn(async () => ({ code: 0, data: {} }) as never) };
 

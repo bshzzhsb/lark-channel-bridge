@@ -1,9 +1,11 @@
+import { afterEach, describe, expect, it } from 'vitest';
+
 import { chmod, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import { ClaudeAdapter } from '../../src/agent/claude/adapter.js';
-import type { AgentEvent } from '../../src/agent/types.js';
+
+import { ClaudeAdapter } from '@/agent/claude/adapter.js';
+import type { AgentEvent } from '@/agent/types.js';
 
 interface FakeBinary {
   path: string;

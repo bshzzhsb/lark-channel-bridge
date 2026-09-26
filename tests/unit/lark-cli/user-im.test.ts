@@ -1,13 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
+
 import {
   addBotToChat,
   completeDeviceLogin,
   getUserAuthStatus,
+  type LarkCliExec,
   listUserChats,
   searchUserChats,
   startDeviceLogin,
-  type LarkCliExec,
-} from '../../../src/lark-cli/user-im';
+} from '@/lark-cli/user-im';
 
 const ctx = { profile: 'claude', rootDir: '/tmp/lark-home' };
 

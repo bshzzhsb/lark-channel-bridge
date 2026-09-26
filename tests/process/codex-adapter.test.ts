@@ -1,10 +1,12 @@
+import { afterEach, describe, expect, it } from 'vitest';
+
 import { chmod, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import { CodexAdapter } from '../../src/agent/codex/adapter.js';
-import { buildCodexArgs } from '../../src/agent/codex/argv.js';
-import type { AgentEvent } from '../../src/agent/types.js';
+
+import { CodexAdapter } from '@/agent/codex/adapter.js';
+import { buildCodexArgs } from '@/agent/codex/argv.js';
+import type { AgentEvent } from '@/agent/types.js';
 
 interface FakeBinary {
   path: string;

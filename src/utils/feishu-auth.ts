@@ -1,4 +1,4 @@
-import type { TenantBrand } from '../config/schema';
+import type { TenantBrand } from '@/config/schema';
 
 const ENDPOINTS: Record<TenantBrand, string> = {
   feishu: 'https://open.feishu.cn',

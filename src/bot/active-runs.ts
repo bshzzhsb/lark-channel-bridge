@@ -1,4 +1,4 @@
-import type { AgentRun } from '../agent/types';
+import type { AgentRun } from '@/agent/types';
 
 export interface RunHandle {
   run: AgentRun;

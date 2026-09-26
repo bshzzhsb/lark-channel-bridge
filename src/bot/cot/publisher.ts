@@ -1,4 +1,5 @@
-import { log } from '../../core/logger';
+import { log } from '@/core/logger';
+
 import type { CotClient } from './client';
 import type { CotEvent, CotRef } from './types';
 
@@ -121,12 +122,24 @@ export class CotPublisher {
       this.timer = undefined;
     }
     await this.flush();
-    if (this.disabled || !this.ref) return;
-    try {
-      await this.client.complete(this.ref, reason);
-      log.info('cot', 'completed', { cotId: this.ref.cotId, reason });
-    } catch (err) {
-      log.warn('cot', 'complete-failed', { err: err instanceof Error ? err.message : String(err) });
+    // A failed progress update must not leave an existing bubble running.
+    if (!this.ref) return;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        await this.client.complete(this.ref, reason);
+        log.info('cot', 'completed', { cotId: this.ref.cotId, reason });
+        return;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const transient = /fetch failed|timeout|timed out|ECONNRESET|EAI_AGAIN|HTTP (?:429|5\d\d)/i.test(message);
+        if (attempt === 0 && transient) {
+          log.warn('cot', 'complete-retry', { cotId: this.ref.cotId, err: message });
+          continue;
+        }
+        this.degradedReason ??= message;
+        log.warn('cot', 'complete-failed', { cotId: this.ref.cotId, err: message });
+        return;
+      }
     }
   }
 
@@ -159,4 +172,8 @@ export class CotPublisher {
       });
     await this.flushing;
   }
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
 }

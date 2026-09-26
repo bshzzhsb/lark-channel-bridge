@@ -1,5 +1,5 @@
-import type { IncomingMessage, ServerResponse } from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 
 export const LOCALHOST_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1']);
 export const MAX_BODY_BYTES = 256 * 1024;

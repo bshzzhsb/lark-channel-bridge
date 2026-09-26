@@ -1,4 +1,5 @@
-import type { TenantBrand } from '../../config/schema';
+import type { TenantBrand } from '@/config/schema';
+
 import type { CotEvent, CotRef } from './types';
 
 const ENDPOINTS: Record<TenantBrand, string> = {
@@ -98,7 +99,4 @@ export class CotClient {
       body: '',
     });
   }
-}
-function stringValue(value: unknown): string | undefined {
-  return typeof value === 'string' ? value : undefined;
 }

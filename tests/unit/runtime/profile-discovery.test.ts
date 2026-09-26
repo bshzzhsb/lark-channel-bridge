@@ -1,13 +1,15 @@
+import { afterEach, describe, expect, it } from 'vitest';
+
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+
 import {
-  createDefaultProfileConfig,
   type AgentKind,
+  createDefaultProfileConfig,
   type RootConfig,
-} from '../../../src/config/profile-schema';
-import { listAllProfiles } from '../../../src/runtime/profile-discovery';
+} from '@/config/profile-schema';
+import { listAllProfiles } from '@/runtime/profile-discovery';
 
 const roots: string[] = [];
 

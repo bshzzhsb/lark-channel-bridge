@@ -1,18 +1,21 @@
-import { afterEach, describe, expect, it } from 'vitest';
-import { join } from 'node:path';
 import type { LarkChannel } from '@larksuite/channel';
-import type { AgentRunRequest, CommandContext } from '../../../src/commands';
-import { fetchOnboardSnapshot, handleOnboard } from '../../../src/bot/onboard';
-import { rootTopicScope } from '../../../src/bot/topic-scope';
-import { ActiveRuns } from '../../../src/bot/active-runs';
-import { startRunFlow } from '../../../src/bot/run-flow';
-import { ProcessPool } from '../../../src/bot/process-pool';
-import { codexCapability } from '../../../src/agent/capability';
-import { canUseGroup } from '../../../src/policy/access';
-import { RunExecutor } from '../../../src/runtime/run-executor';
-import { SessionStore } from '../../../src/session/store';
-import { SessionCatalog } from '../../../src/session/catalog';
-import { WorkspaceStore } from '../../../src/workspace/store';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { join } from 'node:path';
+
+import { codexCapability } from '@/agent/capability';
+import { ActiveRuns } from '@/bot/active-runs';
+import { fetchOnboardSnapshot, handleOnboard } from '@/bot/onboard';
+import { ProcessPool } from '@/bot/process-pool';
+import { startRunFlow } from '@/bot/run-flow';
+import { rootTopicScope } from '@/bot/topic-scope';
+import type { AgentRunRequest, CommandContext } from '@/commands';
+import { canUseGroup } from '@/policy/access';
+import { RunExecutor } from '@/runtime/run-executor';
+import { SessionCatalog } from '@/session/catalog';
+import { SessionStore } from '@/session/store';
+import { WorkspaceStore } from '@/workspace/store';
+
 import { FakeAgentAdapter } from '../../helpers/fake-agent';
 import { createTmpProfile, type TmpProfile } from '../../helpers/tmp-profile';
 
@@ -24,6 +27,93 @@ afterEach(async () => {
 });
 
 describe('/onboard', () => {
+  it('notifies the requester and the senders of evidenced assignment messages only', async () => {
+    const setup = await makeContext('off', JSON.stringify({
+      summary: '有两项待办', title: '完成评审和文档', tasks: [
+        { action: '完成评审', evidenceMessageIds: ['om_assignment', 'om_discussion'],
+          assignmentMessageIds: ['om_assignment'] },
+        { action: '完成文档', evidenceMessageIds: ['om_second', 'om_assignment', 'om_missing'],
+          assignmentMessageIds: ['om_second', 'om_assignment', 'om_missing', 'om_discussion'] },
+      ],
+    }));
+    setup.ctx.channel.rawClient.im.v1.message.list = async () => ({ data: { items: ([
+      ['om_assignment', 'ou_assigner'], ['om_second', 'ou_second'], ['om_discussion', 'ou_discussion'],
+    ] as const).map(([message_id, sender]) => ({ message_id, sender: { id: sender, id_type: 'open_id', sender_type: 'user' },
+      msg_type: 'text', body: { content: '{"text":"任务讨论"}' }, create_time: '1000' })) } });
+    await handleOnboard('', setup.ctx);
+    expect(setup.agentRuns[0]?.prompt).toContain('assignmentMessageIds');
+    expect(setup.agentRuns[1]?.completionMentions).toEqual(['ou_user', 'ou_assigner', 'ou_second']);
+  });
+
+  it('retries a timed out summary with the same UUID without rerunning analysis', async () => {
+    const setup = await makeContext('off', taskAnalysis());
+    const reply = vi.spyOn(setup.ctx.channel.rawClient.im.v1.message, 'reply');
+    reply.mockRejectedValueOnce(Object.assign(new Error('timeout of 30000ms exceeded'), { code: 'ECONNABORTED' }));
+    await handleOnboard('', setup.ctx);
+    expect(reply).toHaveBeenCalledTimes(2);
+    const first = reply.mock.calls[0]![0]!;
+    expect(first.data?.uuid).toBeTruthy();
+    expect(reply.mock.calls[1]![0]).toEqual(first);
+    expect(first.path?.message_id).toBe('om_command');
+    expect(first.data?.reply_in_thread).toBe(true);
+    expect(setup.sent[0]?.input).toEqual({ markdown: '需要完成评审\n\n- 完成设计评审' });
+    expect(setup.agentRuns.map((run) => run.stage)).toEqual(['onboard-analysis', 'onboard-task']);
+  });
+
+  it('includes the completed analysis when both delivery attempts time out', async () => {
+    const setup = await makeContext('off', taskAnalysis());
+    const reply = vi.spyOn(setup.ctx.channel.rawClient.im.v1.message, 'reply')
+      .mockRejectedValue(new Error('timeout of 30000ms exceeded'));
+    await handleOnboard('', setup.ctx);
+    expect(reply).toHaveBeenCalledTimes(2);
+    expect(setup.agentRuns).toHaveLength(1);
+    expect(setup.sent[0]?.input).toMatchObject({ markdown: expect.stringContaining('需要完成评审') });
+    expect(setup.sent[0]?.input).toMatchObject({ markdown: expect.stringContaining('此次未启动待办执行') });
+  });
+
+  it('does not retry permission failures when sending the summary', async () => {
+    const setup = await makeContext('off', taskAnalysis());
+    const reply = vi.spyOn(setup.ctx.channel.rawClient.im.v1.message, 'reply')
+      .mockRejectedValue(Object.assign(new Error('Request failed with status code 400'), {
+        response: { status: 400, data: { code: 230027, msg: 'Missing send permission' } },
+      }));
+    await handleOnboard('', setup.ctx);
+    expect(reply).toHaveBeenCalledTimes(1);
+    expect(setup.sent[0]?.input).toMatchObject({ markdown: expect.stringContaining('Missing send permission') });
+    expect(setup.agentRuns).toHaveLength(1);
+  });
+
+  it.each(['http', 'envelope'] as const)('explains missing group history permission from an %s error', async (kind) => {
+    const setup = await makeContext('off', taskAnalysis());
+    const data = { code: 230027, msg: 'Lack of necessary permissions, ext=need scope: im:message.group_msg' };
+    setup.ctx.channel.rawClient.im.v1.message.list = async () => {
+      if (kind === 'http') {
+        throw Object.assign(new Error('Request failed with status code 400'), { response: { status: 400, data } });
+      }
+      return data;
+    };
+    await handleOnboard('', setup.ctx);
+    expect(setup.agentRuns).toHaveLength(0);
+    expect(setup.sent).toMatchObject([{
+      input: { markdown: expect.stringContaining('im:message.group_msg') },
+      opts: { replyTo: 'om_command', replyInThread: true },
+    }]);
+    expect(setup.sent[0]?.input).toMatchObject({ markdown: expect.stringContaining('发布新版本') });
+    expect(setup.sent[0]?.input).not.toMatchObject({ markdown: expect.stringContaining('status code 400') });
+  });
+
+  it('preserves the API reason and code for other HTTP failures', async () => {
+    const setup = await makeContext('off', taskAnalysis());
+    setup.ctx.channel.rawClient.im.v1.pin.list = async () => {
+      throw Object.assign(new Error('Request failed with status code 400'), {
+        response: { status: 400, data: { code: 99991672, msg: 'Access denied' } },
+      });
+    };
+    await handleOnboard('', setup.ctx);
+    expect(setup.sent[0]?.input).toEqual({ markdown: '❌ /onboard 失败：Access denied（错误码 99991672）' });
+    expect(setup.agentRuns).toHaveLength(0);
+  });
+
   it('sends the analysis summary without COT when globally off and no task is found', async () => {
     const setup = await makeContext('off', JSON.stringify({ summary: '无待办', title: '', tasks: [] }), 'conversation');
     await handleOnboard('', setup.ctx);
@@ -69,7 +159,7 @@ describe('/onboard', () => {
     await handleOnboard('', setup.ctx);
 
     expect(setup.sent).toMatchObject([{
-      input: { markdown: '需要完成评审' },
+      input: { markdown: '需要完成评审\n\n- 完成设计评审' },
       opts: { replyTo: 'om_command', replyInThread: scenario.analysisInThread },
     }]);
     expect(setup.ctx.sessions.getRaw(scenario.analysisScope)?.sessionId).toBe('analysis-session');
@@ -81,6 +171,7 @@ describe('/onboard', () => {
     });
     expect(setup.agentRuns[1]).toMatchObject({
       stage: 'onboard-task', scopeId: scenario.analysisScope,
+      completionMentions: ['ou_user'],
       sessionAnchor: {
         title: '完成设计评审',
         fallbackMessage: expect.stringContaining('完成设计评审'),
@@ -184,7 +275,75 @@ describe('/onboard', () => {
     expect(snapshot.messages.find((message) => message.messageId === 'om_reply')?.mentionsRequester).toBe(true);
     expect(snapshot.pins.map((message) => message.messageId)).toEqual(['om_pin']);
   });
+
+  it('reads bot results and human confirmations in an ordinary group topic whose root omits thread_id', async () => {
+    const setup = await makeContext('off', JSON.stringify({ summary: '已确认完成', title: '', tasks: [] }));
+    const root = historyItem('om_assignment', 'ou_peer', 'user', '请完成设计评审', '1000');
+    const result = { ...historyItem('om_result', 'cli_bot', 'app', '设计评审已完成，意见已经发出', '2000'),
+      thread_id: 'omt_task', root_id: root.message_id };
+    const confirmation = { ...historyItem('om_confirm', 'ou_user', 'user', '确认完成，谢谢', '3000'),
+      thread_id: 'omt_task', root_id: root.message_id };
+    const fetchedRoot = { ...root, thread_id: 'omt_task' };
+    vi.spyOn(setup.ctx.channel, 'fetchRawMessage').mockResolvedValue([fetchedRoot]);
+    const list = vi.spyOn(setup.ctx.channel.rawClient.im.v1.message, 'list').mockImplementation(async (input) => ({
+      data: { items: input?.params.container_id_type === 'thread' ? [confirmation, result] : [root] },
+    }));
+    const snapshot = await fetchOnboardSnapshot(setup.ctx);
+    expect(list).toHaveBeenCalledWith(expect.objectContaining({
+      params: expect.objectContaining({ container_id_type: 'thread', container_id: 'omt_task' }),
+    }));
+    expect(snapshot.messages.map((message) => message.messageId)).toEqual(['om_assignment', 'om_result', 'om_confirm']);
+    expect(snapshot.messages.find((message) => message.messageId === 'om_result')?.senderType).toBe('bot');
+    await handleOnboard('', setup.ctx);
+    expect(setup.agentRuns[0]?.prompt).toContain('设计评审已完成，意见已经发出');
+    expect(setup.agentRuns[0]?.prompt).toContain('确认完成，谢谢');
+    expect(setup.agentRuns).toHaveLength(1);
+  });
+
+  it.each(['sessions', 'catalog'] as const)('recovers a saved task topic absent from recent chat history via %s', async (source) => {
+    const setup = await makeContext('off', JSON.stringify({ summary: '已完成', title: '', tasks: [] }));
+    const scope = rootTopicScope('oc_group', 'om_saved_task');
+    if (source === 'sessions') {
+      setup.ctx.sessions.markTopicRoot(scope);
+      await setup.ctx.sessions.flush();
+      const reloaded = new SessionStore(join(setup.tmp.profile, 'sessions.json'));
+      await reloaded.load();
+      reloaded.clear(scope);
+      setup.ctx.sessions = reloaded;
+      await reloaded.flush();
+    } else {
+      const catalog = new SessionCatalog(join(setup.tmp.profile, 'catalog.json'));
+      const identity = { scopeId: scope, agentId: 'codex' as const, cwdRealpath: setup.workspace, policyFingerprint: 'old' };
+      catalog.upsertActive({ ...identity, threadId: 'agent-thread' });
+      catalog.archiveActive(identity);
+      await catalog.flush();
+      setup.ctx.sessionCatalog = catalog;
+    }
+    const recent = historyItem('om_recent', 'ou_peer', 'user', '今天的其他讨论', '4000');
+    const recentChatItems = Array.from({ length: 100 }, (_, index) => ({ ...recent,
+      message_id: `om_recent_${index}`, thread_id: 'omt_other', create_time: String(4000 + index) }));
+    const result = { ...historyItem('om_saved_result', 'cli_bot', 'app', '之前的任务已经完成', '2000'),
+      root_id: 'om_saved_task', thread_id: 'omt_saved' };
+    const confirmation = { ...historyItem('om_saved_confirm', 'ou_peer', 'user', '验收通过', '3000'),
+      root_id: 'om_saved_task', thread_id: 'omt_saved' };
+    const fetch = vi.spyOn(setup.ctx.channel, 'fetchRawMessage').mockImplementation(async (id) => id === 'om_saved_task'
+      ? [{ ...historyItem('om_saved_task', 'cli_bot', 'app', '任务', '1000'), thread_id: 'omt_saved' }] : [recent]);
+    vi.spyOn(setup.ctx.channel.rawClient.im.v1.message, 'list').mockImplementation(async (input) => ({
+      data: { items: input?.params.container_id_type === 'chat' ? recentChatItems
+        : input?.params.container_id === 'omt_saved' ? [confirmation, result] : [] },
+    }));
+    const snapshot = await fetchOnboardSnapshot(setup.ctx);
+    expect(fetch).toHaveBeenCalledWith('om_saved_task', expect.anything());
+    expect(snapshot.messages.map((message) => message.messageId)).toEqual([
+      'om_saved_result', 'om_saved_confirm', ...recentChatItems.map((item) => item.message_id),
+    ]);
+  });
 });
+
+function historyItem(message_id: string, sender: string, sender_type: string, text: string, create_time: string) {
+  return { message_id, msg_type: 'text', body: { content: JSON.stringify({ text }) },
+    sender: { id: sender, id_type: 'open_id', sender_type }, create_time };
+}
 
 function taskAnalysis(): string {
   return JSON.stringify({
@@ -221,7 +380,14 @@ async function makeContext(
     },
     rawClient: { im: { v1: {
       pin: { async list() { return { data: { items: [], has_more: false } }; } },
-      message: { async list() { return { data: { items: [{
+      message: {
+        async reply(input: { path: { message_id: string }; data: { content: string; reply_in_thread?: boolean; uuid?: string } }) {
+          const post = JSON.parse(input.data.content);
+          sent.push({ input: { markdown: post.zh_cn.content[0][0].text },
+            opts: { replyTo: input.path.message_id, replyInThread: input.data.reply_in_thread } });
+          return { data: { message_id: nextMessage++ === 0 ? 'om_task' : 'om_answer' } };
+        },
+        async list() { return { data: { items: [{
         message_id: 'om_context', msg_type: 'text', body: { content: '{"text":"周五前完成设计评审"}' },
         sender: { id: 'ou_peer', sender_type: 'user' }, create_time: '1000',
         mentions: [{ key: '@_user_1', id: 'ou_user', name: '用户' }],

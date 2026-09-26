@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import { apiGet, apiPost } from "@/lib/api";
-import type { BotInfo, ProfileInfo } from "@/lib/types";
-import { Button } from "@/components/ui/button";
+import { useCallback, useEffect, useState } from "react";
+
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -14,6 +13,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/sonner";
+import { apiGet, apiPost } from "@/lib/api";
+import type { BotInfo, ProfileInfo } from "@/lib/types";
+
 import { ConfigView } from "./ConfigView";
 
 function uptime(ms: number): string {

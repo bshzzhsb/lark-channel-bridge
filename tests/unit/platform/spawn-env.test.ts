@@ -1,6 +1,8 @@
-import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
-import { mergeProcessEnv } from '../../../src/platform/spawn.js';
+
+import { readFile } from 'node:fs/promises';
+
+import { mergeProcessEnv } from '@/platform/spawn.js';
 
 describe('platform spawn env', () => {
   it('overrides env keys case-insensitively for Windows-compatible CODEX_HOME handling', () => {
@@ -29,8 +31,8 @@ describe('platform spawn env', () => {
       readFile(new URL('../../../src/agent/codex/adapter.ts', import.meta.url), 'utf8'),
     ]);
 
-    expect(claudeSource).toContain("from '../../platform/spawn'");
-    expect(codexSource).toContain("from '../../platform/spawn'");
+    expect(claudeSource).toContain("from '@/platform/spawn'");
+    expect(codexSource).toContain("from '@/platform/spawn'");
     expect(claudeSource).not.toContain("from 'node:child_process'");
     expect(codexSource).not.toContain("from 'node:child_process'");
     expect(claudeSource).not.toContain('shell: true');

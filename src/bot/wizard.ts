@@ -1,6 +1,7 @@
 import { registerApp } from '@larksuite/channel';
 import qrcode from 'qrcode-terminal';
-import type { AppConfig, TenantBrand } from '../config/schema';
+
+import type { AppConfig, TenantBrand } from '@/config/schema';
 
 export interface ScopeGrantLink {
   /** Authorization URL — opening it lands on the confirm page with the new

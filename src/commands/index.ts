@@ -1,18 +1,27 @@
+import type { LarkChannel, NormalizedMessage } from '@larksuite/channel';
+
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute } from 'node:path';
-import type { LarkChannel, NormalizedMessage } from '@larksuite/channel';
-import { claudeCapability, codexCapability } from '../agent/capability';
-import { normalizeModelSelection, resolveModelArg } from '../agent/models';
-import type { AgentAdapter } from '../agent/types';
-import type { ActiveRuns } from '../bot/active-runs';
+
+import { claudeCapability, codexCapability } from '@/agent/capability';
+import { normalizeModelSelection, resolveModelArg } from '@/agent/models';
+import type { AgentAdapter } from '@/agent/types';
+import type { ActiveRuns } from '@/bot/active-runs';
+import { GROUP_MSG_SCOPE, hasGroupMsgScope } from '@/bot/app-scope';
+import { createBoundChat, defaultChatName } from '@/bot/group';
+import { fetchKnownChats, type KnownChat } from '@/bot/lark-info';
+import { handleOnboard } from '@/bot/onboard';
+import type { ProcessPool } from '@/bot/process-pool';
+import { replyOptions } from '@/bot/reply-placement';
+import { requestScopeGrantLink } from '@/bot/wizard';
 import {
   accountCurrentCard,
   accountFailureCard,
   accountFormCard,
   accountSuccessCard,
-} from '../card/account-cards';
+} from '@/card/account-cards';
 import {
   configCancelledCard,
   configFailedCard,
@@ -20,75 +29,68 @@ import {
   configSavedCard,
   groupMsgScopeGrantCard,
   groupMsgScopeGrantedCard,
-} from '../card/config-card';
-import { GROUP_MSG_SCOPE, hasGroupMsgScope } from '../bot/app-scope';
-import { requestScopeGrantLink } from '../bot/wizard';
-import { forgetManagedCard, sendManagedCard, updateManagedCard } from '../card/managed';
-import { helpCard, resumeCard, statusCard, workspacesCard } from '../card/templates';
-import type { AppConfig, AppPreferences, CotMessagesMode, MessageReplyMode, ReplyPlacement, TenantBrand } from '../config/schema';
-import {
-  getAgentStopGraceMs,
-  getCotMessages,
-  getMaxConcurrentRuns,
-  getMessageReplyMode,
-  getReplyPlacement,
-  isReplyPlacement,
-  getRequireMentionInGroup,
-  getRunIdleTimeoutMs,
-  getShowToolCalls,
-} from '../config/schema';
-import type {
-  LarkCliIdentityPreset,
-  ProfileAccess,
-  ProfileConfig,
-  ProfileMode,
-} from '../config/profile-schema';
-import { effectiveLarkCliIdentity } from '../config/profile-schema';
-import { resolveAppPaths } from '../config/app-paths';
-import { accessToClaudePermissionMode } from '../config/permissions';
-import {
-  canRunAdminCommand,
-  canUseDm,
-  canUseGroup,
-  type OwnerRefreshState,
-} from '../policy/access';
-import { buildEncryptedAccountConfig } from '../config/store';
-import * as configOps from '../config/config-ops';
-import { log, reportMetric } from '../core/logger';
-import { renderCard } from '../card/run-renderer';
+} from '@/card/config-card';
+import { forgetManagedCard, sendManagedCard, updateManagedCard } from '@/card/managed';
+import { renderCard } from '@/card/run-renderer';
 import {
   finalizeIfRunning,
   initialState,
   markInterrupted,
   reduce,
   type RunState,
-} from '../card/run-state';
-import { formatRelTime, listRecentSessions, type SessionSummary } from '../session/history';
+} from '@/card/run-state';
+import { helpCard, resumeCard, statusCard, workspacesCard } from '@/card/templates';
+import { resolveAppPaths } from '@/config/app-paths';
+import * as configOps from '@/config/config-ops';
+import { accessToClaudePermissionMode } from '@/config/permissions';
+import type {
+  LarkCliIdentityPreset,
+  ProfileAccess,
+  ProfileConfig,
+  ProfileMode,
+} from '@/config/profile-schema';
+import { effectiveLarkCliIdentity } from '@/config/profile-schema';
+import type { AppConfig, AppPreferences, CotMessagesMode, MessageReplyMode, ReplyPlacement, TenantBrand } from '@/config/schema';
 import {
-  listCodexThreadHistory,
+  getAgentStopGraceMs,
+  getCotMessages,
+  getMaxConcurrentRuns,
+  getMessageReplyMode,
+  getReplyPlacement,
+  getRequireMentionInGroup,
+  getRunIdleTimeoutMs,
+  getShowToolCalls,
+  isReplyPlacement,
+} from '@/config/schema';
+import { buildEncryptedAccountConfig } from '@/config/store';
+import { log, reportMetric } from '@/core/logger';
+import { hasStructuredLarkCliUserAuth } from '@/lark-cli/identity-policy';
+import { isMeetingNo } from '@/meeting/api';
+import { describeMeetingError, type MeetingManager } from '@/meeting/manager';
+import { answerInMeeting, meetingScopeId } from '@/meeting/orchestrator';
+import type { MeetingSession } from '@/meeting/session';
+import {
+  canRunAdminCommand,
+  canUseDm,
+  canUseGroup,
+  type OwnerRefreshState,
+} from '@/policy/access';
+import { evaluateRunPolicy } from '@/policy/run-policy';
+import { resolveWorkingDirectory } from '@/policy/workspace';
+import { RunRejected } from '@/runtime/errors';
+import { isAlive, readAndPrune, resolveTarget } from '@/runtime/registry';
+import type { RunExecutor } from '@/runtime/run-executor';
+import type { SessionCatalog, SessionCatalogIdentity } from '@/session/catalog';
+import {
   type CodexThreadHistoryEntry,
+  listCodexThreadHistory,
   type ListCodexThreadHistoryOptions,
-} from '../session/codex-history';
-import type { SessionCatalog, SessionCatalogIdentity } from '../session/catalog';
-import { isAlive, readAndPrune, resolveTarget } from '../runtime/registry';
-import { readUiSidecar } from '../ui/sidecar';
-import type { SessionStore } from '../session/store';
-import { resolveWorkingDirectory } from '../policy/workspace';
-import { evaluateRunPolicy } from '../policy/run-policy';
-import type { ProcessPool } from '../bot/process-pool';
-import type { RunExecutor } from '../runtime/run-executor';
-import { RunRejected } from '../runtime/errors';
-import { validateAppCredentials } from '../utils/feishu-auth';
-import type { WorkspaceStore } from '../workspace/store';
-import { createBoundChat, defaultChatName } from '../bot/group';
-import { replyOptions } from '../bot/reply-placement';
-import { handleOnboard } from '../bot/onboard';
-import { fetchKnownChats, type KnownChat } from '../bot/lark-info';
-import { describeMeetingError, type MeetingManager } from '../meeting/manager';
-import { isMeetingNo } from '../meeting/api';
-import { answerInMeeting, meetingScopeId } from '../meeting/orchestrator';
-import type { MeetingSession } from '../meeting/session';
-import { hasStructuredLarkCliUserAuth } from '../lark-cli/identity-policy';
+} from '@/session/codex-history';
+import { formatRelTime, listRecentSessions, type SessionSummary } from '@/session/history';
+import type { SessionStore } from '@/session/store';
+import { readUiSidecar } from '@/ui/sidecar';
+import { validateAppCredentials } from '@/utils/feishu-auth';
+import type { WorkspaceStore } from '@/workspace/store';
 
 export interface Controls {
   profile: string;
@@ -167,6 +169,8 @@ export interface AgentRunOptions {
   access?: 'profile' | 'read-only';
   /** Suppress the final chat reply and return the agent's final text instead. */
   reply?: 'normal' | 'silent';
+  /** Mention these users' open IDs in the final result message only. */
+  completionMentions?: string[];
   /** Do not persist this run's session events. */
   persistSession?: boolean;
   stage?: string;

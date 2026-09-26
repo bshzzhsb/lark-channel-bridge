@@ -1,4 +1,4 @@
-import type { AgentPreflightDiagnostic, AgentPreflightErrorCode } from '../agent/preflight';
+import type { AgentPreflightDiagnostic, AgentPreflightErrorCode } from '@/agent/preflight';
 
 export type RunRejectedCode =
   | 'pool-full'

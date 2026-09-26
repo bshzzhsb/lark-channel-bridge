@@ -4,7 +4,7 @@ import type {
   AgentEvent,
   AgentRun,
   AgentRunOptions,
-} from '../../src/agent/types.js';
+} from '@/agent/types.js';
 
 export interface FakeAgentRun extends AgentRun {
   readonly opts: AgentRunOptions;

@@ -1,9 +1,11 @@
+import { afterEach, describe, expect, it } from 'vitest';
+
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import { writeNewProfile } from '../../../src/ui/onboard';
-import { loadRootConfig } from '../../../src/config/profile-store';
+
+import { loadRootConfig } from '@/config/profile-store';
+import { writeNewProfile } from '@/ui/onboard';
 
 const roots: string[] = [];
 

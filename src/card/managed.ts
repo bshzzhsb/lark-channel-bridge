@@ -1,5 +1,6 @@
 import type { LarkChannel } from '@larksuite/channel';
-import { log } from '../core/logger';
+
+import { log } from '@/core/logger';
 
 interface ManagedEntry {
   kind: 'card-id' | 'raw-card';

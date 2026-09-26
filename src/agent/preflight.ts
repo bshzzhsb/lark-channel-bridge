@@ -1,4 +1,4 @@
-import { spawnProcess } from '../platform/spawn';
+import { spawnProcess } from '@/platform/spawn';
 
 export type LocalAgentId = 'claude' | 'codex';
 

@@ -24,6 +24,9 @@ export default defineConfig([
     platform: 'node',
     sourcemap: false,
     splitting: false,
-    dts: true,
+    dts: {
+      // tsup injects baseUrl; its declaration builder uses the TypeScript 6 API.
+      compilerOptions: { ignoreDeprecations: '6.0' },
+    },
   },
 ]);
