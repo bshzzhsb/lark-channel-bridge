@@ -1,13 +1,16 @@
-import { join } from 'node:path';
-import { readFile } from 'node:fs/promises';
-import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { NormalizedMessage } from '@larksuite/channel';
-import type { AgentRun } from '../../../src/agent/types';
-import { ActiveRuns } from '../../../src/bot/active-runs';
-import { tryHandleCommand, type CommandContext, type Controls } from '../../../src/commands/index';
-import { createDefaultProfileConfig } from '../../../src/config/profile-schema';
-import { SessionStore } from '../../../src/session/store';
-import { WorkspaceStore } from '../../../src/workspace/store';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+
+import type { AgentRun } from '@/agent/types';
+import { ActiveRuns } from '@/bot/active-runs';
+import { type CommandContext, type Controls,tryHandleCommand } from '@/commands/index';
+import { createDefaultProfileConfig } from '@/config/profile-schema';
+import { SessionStore } from '@/session/store';
+import { WorkspaceStore } from '@/workspace/store';
+
 import { FakeAgentAdapter } from '../../helpers/fake-agent';
 import { createFakeChannel } from '../../helpers/fake-channel';
 import { createTmpProfile, type TmpProfile } from '../../helpers/tmp-profile';
@@ -54,10 +57,12 @@ describe('/reconnect profile lifecycle', () => {
   });
 
   it('guards direct bridge disconnects and IM commands with the current profile runtime context', async () => {
-    const source = await readFile(new URL('../../../src/bot/channel.ts', import.meta.url), 'utf8');
+    const [source, intake] = await Promise.all([
+      readFile(new URL('../../../src/bot/channel/index.ts', import.meta.url), 'utf8'),
+      readFile(new URL('../../../src/bot/im/intake.ts', import.meta.url), 'utf8'),
+    ]);
     const disconnectBlock = source.slice(
-      source.indexOf('disconnect: async () => {'),
-      source.indexOf('async function commandSessionCatalogIdentity'),
+      source.indexOf('async function disconnectChannel('),
     );
 
     expect(source).toContain("activeRuns.pauseNewRuns('bridge-disconnect')");
@@ -65,7 +70,7 @@ describe('/reconnect profile lifecycle', () => {
     expect(disconnectBlock).toContain('await Promise.allSettled([');
     expect(disconnectBlock).toContain('channel.disconnect()');
     expect(disconnectBlock).toContain('activeRuns.stopAll()');
-    expect(source).toContain('sessionCatalogIdentity: await commandSessionCatalogIdentity({');
+    expect(intake).toContain('const sessionCatalogIdentity = await commandSessionCatalogIdentity({');
   });
 });
 

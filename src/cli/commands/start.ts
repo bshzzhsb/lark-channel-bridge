@@ -1,64 +1,29 @@
 import dns from 'node:dns';
 import os from 'node:os';
 import { createInterface } from 'node:readline';
-import pkg from '../../../package.json';
-import { ClaudeAdapter } from '../../agent/claude/adapter';
-import { CodexAdapter } from '../../agent/codex/adapter';
-import {
-  AgentPreflightError,
-  formatAgentPreflightDiagnostic,
-  type AgentAvailability,
-} from '../../agent/preflight';
-import type { AgentAdapter } from '../../agent/types';
-import { startChannel, type BridgeChannel } from '../../bot/channel';
-import type { Controls } from '../../commands';
-import type { AppPaths } from '../../config/app-paths';
-import {
-  type AgentKind,
-  type ProfileConfig,
-} from '../../config/profile-schema';
-import type { AppConfig } from '../../config/schema';
-import { isComplete } from '../../config/schema';
-import { configureLogger, gcOldLogs, log, reportError } from '../../core/logger';
-import { loadTelemetryAdapter, telemetry } from '../../core/telemetry';
-import { gcMediaCache } from '../../media/cache';
-import { startUiServer } from '../../ui/server';
-import { readUiSidecar, removeUiSidecar, writeUiSidecar } from '../../ui/sidecar';
-import type { UiServerHandle } from '../../ui/types';
-import { Supervisor } from '../../runtime/supervisor';
-import { acquireHostLock } from '../../runtime/host-lock';
-import { preFlightChecks } from '../preflight';
-import { promptAndStopActiveBridgeMigrationConflict } from './migrate';
-import { stopProcessEntry, type StopProcessEntryResult } from './ps';
-import {
-  cleanupTmpFiles,
-  register,
-  sameAppLiveOthers,
-  unregisterSync,
-  updateEntry,
-  type ProcessEntry,
-} from '../../runtime/registry';
-import {
-  acquireAppRuntimeLock,
-  RuntimeLockConflictError,
-  withProfileAndAppLocks,
-  type AcquiredRuntimeLock,
-  type RuntimeLockMeta,
-} from '../../runtime/locks';
-import { resolveProfileRuntime } from '../../runtime/profile-runtime';
+
+import type { AppPaths } from '@/config/app-paths';
+import { configureLogger, gcOldLogs, log, reportError } from '@/core/logger';
+import { loadTelemetryAdapter, telemetry } from '@/core/telemetry';
 import {
   assertReconnectAgentKindUnchanged,
-  checkRuntimeAgentAvailability,
   createRuntimeAgent,
-  releaseRuntimeLocks,
-} from '../../runtime/agent-runtime';
-import { refreshOwnerControls } from '../../policy/owner';
+} from '@/runtime/agent-runtime';
+import { acquireHostLock } from '@/runtime/host-lock';
+import { RuntimeLockConflictError, type RuntimeLockMeta } from '@/runtime/locks';
+import { resolveProfileRuntime } from '@/runtime/profile-runtime';
+import { cleanupTmpFiles, type ProcessEntry } from '@/runtime/registry';
+import { Supervisor } from '@/runtime/supervisor';
+import { startUiServer } from '@/ui/server';
+import { readUiSidecar, removeUiSidecar, writeUiSidecar } from '@/ui/sidecar';
+import type { UiServerHandle } from '@/ui/types';
+
+import pkg from '../../../package.json';
+import { promptAndStopActiveBridgeMigrationConflict } from './migrate';
+import { stopProcessEntry, type StopProcessEntryResult } from './ps';
 
 // Re-exported for existing tests that import these from this module.
 export { assertReconnectAgentKindUnchanged, createRuntimeAgent };
-import { SessionStore } from '../../session/store';
-import { SessionCatalog } from '../../session/catalog';
-import { WorkspaceStore } from '../../workspace/store';
 
 // Prefer IPv4 — Node 20+ defaults to "verbatim" which respects whatever
 // the resolver returns first; in IPv6-broken networks (WSL2, certain VPNs,
@@ -267,7 +232,6 @@ function parkWithShutdown(
 
   return new Promise<void>(() => {});
 }
-
 
 /**
  * Print the same-app conflict, then ask the user how to proceed. Returns

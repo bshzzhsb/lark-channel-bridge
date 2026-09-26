@@ -1,7 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { Readable, Writable } from 'node:stream';
-import { spawnProcess, type SpawnedProcessByStdio } from '../platform/spawn';
+
+import { type SpawnedProcessByStdio,spawnProcess } from '@/platform/spawn';
+
 import { getSecret, type KeystorePaths } from './keystore';
 import { paths } from './paths';
 import type { AppConfig, ProviderConfig, SecretInput, SecretRef } from './schema';

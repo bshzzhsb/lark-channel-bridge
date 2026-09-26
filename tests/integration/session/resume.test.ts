@@ -1,19 +1,22 @@
+import { afterEach, describe, expect, it } from 'vitest';
+
 import { realpath } from 'node:fs/promises';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import { claudeCapability, codexCapability } from '../../../src/agent/capability.js';
-import { ActiveRuns } from '../../../src/bot/active-runs.js';
-import { ProcessPool } from '../../../src/bot/process-pool.js';
+
+import { claudeCapability, codexCapability } from '@/agent/capability.js';
+import { ActiveRuns } from '@/bot/active-runs.js';
+import { ProcessPool } from '@/bot/process-pool.js';
 import {
   recordRunSessionEvent,
   startRunFlow,
   type StartRunFlowInput,
-} from '../../../src/bot/run-flow.js';
-import { createDefaultProfileConfig, type ProfileConfig } from '../../../src/config/profile-schema.js';
-import { RunExecutor } from '../../../src/runtime/run-executor.js';
-import { SessionCatalog } from '../../../src/session/catalog.js';
-import { SessionStore } from '../../../src/session/store.js';
-import { WorkspaceStore } from '../../../src/workspace/store.js';
+} from '@/bot/run-flow.js';
+import { createDefaultProfileConfig, type ProfileConfig } from '@/config/profile-schema.js';
+import { RunExecutor } from '@/runtime/run-executor.js';
+import { SessionCatalog } from '@/session/catalog.js';
+import { SessionStore } from '@/session/store.js';
+import { WorkspaceStore } from '@/workspace/store.js';
+
 import { FakeAgentAdapter } from '../../helpers/fake-agent.js';
 import { createTmpProfile, type TmpProfile } from '../../helpers/tmp-profile.js';
 

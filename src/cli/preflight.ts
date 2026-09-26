@@ -1,28 +1,30 @@
 import * as p from '@clack/prompts';
+
 import { readFile } from 'node:fs/promises';
-import { buildLarkChannelEnv, type LarkChannelEnvContext } from '../agent/lark-channel-env';
-import type { AppPaths } from '../config/app-paths';
+
+import { buildLarkChannelEnv, type LarkChannelEnvContext } from '@/agent/lark-channel-env';
+import type { AppPaths } from '@/config/app-paths';
 import {
   type LarkCliConfig,
   type LarkCliIdentityPreset,
   type LarkCliUserImportStatus,
   type ProfileConfig,
-} from '../config/profile-schema';
+} from '@/config/profile-schema';
 import {
   loadRootConfig,
   saveRootConfig,
   withConfigFileLock,
-} from '../config/profile-store';
-import type { AppConfig } from '../config/schema';
-import { log } from '../core/logger';
+} from '@/config/profile-store';
+import type { AppConfig } from '@/config/schema';
+import { log } from '@/core/logger';
 import {
   hasLarkCliUserAuth,
   hasStructuredLarkCliUserAuth,
-} from '../lark-cli/identity-policy';
-import { withLegacyLarkCliSourceOverlay } from '../lark-cli/legacy-source-overlay';
-import { writeLarkCliSourceProjection } from '../lark-cli/profile-projection';
-import { mergeProcessEnv, spawnProcess, spawnProcessSync } from '../platform/spawn';
-import { writeFileAtomic } from '../platform/atomic-write';
+} from '@/lark-cli/identity-policy';
+import { withLegacyLarkCliSourceOverlay } from '@/lark-cli/legacy-source-overlay';
+import { writeLarkCliSourceProjection } from '@/lark-cli/profile-projection';
+import { writeFileAtomic } from '@/platform/atomic-write';
+import { mergeProcessEnv, spawnProcess, spawnProcessSync } from '@/platform/spawn';
 
 const INSTALL_TIMEOUT_MS = 5 * 60 * 1000;
 const BIND_TIMEOUT_MS = 30 * 1000;

@@ -1,8 +1,11 @@
+import { afterEach, describe, expect, it } from 'vitest';
+
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import { CodexAdapter } from '../../../src/agent/codex/adapter.js';
+
+import { CodexAdapter } from '@/agent/codex/adapter.js';
+
 import { writeVersionExecutable } from '../../helpers/fake-executable.js';
 
 const cleanups: Array<() => Promise<void>> = [];

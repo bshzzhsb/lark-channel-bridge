@@ -1,3 +1,5 @@
+import crossSpawn from 'cross-spawn';
+
 import type {
   ChildProcess,
   ChildProcessByStdio,
@@ -5,7 +7,6 @@ import type {
   SpawnSyncOptions,
 } from 'node:child_process';
 import type { Readable, Writable } from 'node:stream';
-import crossSpawn from 'cross-spawn';
 
 export function spawnProcess(
   command: string,

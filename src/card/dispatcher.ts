@@ -1,20 +1,22 @@
 import type { CardActionEvent, LarkChannel, NormalizedMessage } from '@larksuite/channel';
-import type { AgentAdapter } from '../agent/types';
-import type { ActiveRuns } from '../bot/active-runs';
-import type { ChatModeCache } from '../bot/chat-mode-cache';
-import type { PendingQueue } from '../bot/pending-queue';
-import type { ProcessPool } from '../bot/process-pool';
+
+import type { AgentAdapter } from '@/agent/types';
+import type { ActiveRuns } from '@/bot/active-runs';
+import type { ChatModeCache } from '@/bot/chat-mode-cache';
+import type { PendingQueue } from '@/bot/pending-queue';
+import type { ProcessPool } from '@/bot/process-pool';
+import { commandSessionCatalogIdentity } from '@/bot/session-catalog-identity';
+import { lookupMessageThreadContext } from '@/bot/thread-id';
+import { existingRootTopicScope } from '@/bot/topic-scope';
+import { type CommandContext, type Controls,runCommandHandler } from '@/commands';
+import { log } from '@/core/logger';
+import { canUseDm, canUseGroup } from '@/policy/access';
+import type { RunExecutor } from '@/runtime/run-executor';
+import type { SessionCatalog } from '@/session/catalog';
+import type { SessionStore } from '@/session/store';
+import type { WorkspaceStore } from '@/workspace/store';
+
 import type { CallbackAuth } from './callback-auth';
-import { runCommandHandler, type CommandContext, type Controls } from '../commands';
-import { log } from '../core/logger';
-import { canUseDm, canUseGroup } from '../policy/access';
-import type { RunExecutor } from '../runtime/run-executor';
-import type { SessionCatalog } from '../session/catalog';
-import type { SessionStore } from '../session/store';
-import type { WorkspaceStore } from '../workspace/store';
-import { commandSessionCatalogIdentity } from '../bot/session-catalog-identity';
-import { lookupMessageThreadContext } from '../bot/thread-id';
-import { existingRootTopicScope } from '../bot/topic-scope';
 
 /** Marker key on a button's value object that flags the cardAction as
  * a callback that should be forwarded back to the agent instead

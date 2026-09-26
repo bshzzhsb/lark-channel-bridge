@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { defaultChatName } from '../../../src/bot/group.js';
+
+import { defaultChatName } from '@/bot/group.js';
 
 describe('group chat helpers', () => {
   afterEach(() => {

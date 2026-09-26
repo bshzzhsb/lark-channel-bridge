@@ -1,16 +1,17 @@
+import type { AgentAdapter } from '@/agent/types';
+import { type BridgeChannel,startChannel as realStartChannel } from '@/bot/channel/index';
+import { preFlightChecks } from '@/cli/preflight';
+import type { Controls } from '@/commands';
+import type { AppPaths } from '@/config/app-paths';
+import type { AgentKind, ProfileConfig } from '@/config/profile-schema';
+import { type AppConfig,isComplete } from '@/config/schema';
+import { log } from '@/core/logger';
+import { refreshOwnerControls } from '@/policy/owner';
+import { SessionCatalog } from '@/session/catalog';
+import { SessionStore } from '@/session/store';
+import { WorkspaceStore } from '@/workspace/store';
+
 import pkg from '../../package.json';
-import { startChannel as realStartChannel, type BridgeChannel } from '../bot/channel';
-import type { Controls } from '../commands';
-import type { AppPaths } from '../config/app-paths';
-import { isComplete, type AppConfig } from '../config/schema';
-import type { AgentKind, ProfileConfig } from '../config/profile-schema';
-import type { AgentAdapter } from '../agent/types';
-import { log } from '../core/logger';
-import { refreshOwnerControls } from '../policy/owner';
-import { SessionStore } from '../session/store';
-import { SessionCatalog } from '../session/catalog';
-import { WorkspaceStore } from '../workspace/store';
-import { preFlightChecks } from '../cli/preflight';
 import {
   assertReconnectAgentKindUnchanged,
   checkRuntimeAgentAvailability,
@@ -19,16 +20,16 @@ import {
 } from './agent-runtime';
 import {
   acquireAppRuntimeLock,
-  acquireProfileRuntimeLock,
   type AcquiredRuntimeLock,
+  acquireProfileRuntimeLock,
 } from './locks';
 import { resolveProfileRuntime } from './profile-runtime';
 import {
+  type ProcessEntry,
   register,
   unregister,
   unregisterSync,
   updateEntry,
-  type ProcessEntry,
 } from './registry';
 
 type StartChannelFn = typeof realStartChannel;

@@ -1,9 +1,10 @@
-import { ClaudeAdapter } from '../agent/claude/adapter';
-import { CodexAdapter } from '../agent/codex/adapter';
-import { AgentPreflightError, type AgentAvailability } from '../agent/preflight';
-import type { AgentAdapter } from '../agent/types';
-import type { AppPaths } from '../config/app-paths';
-import type { AgentKind, ProfileConfig } from '../config/profile-schema';
+import { ClaudeAdapter } from '@/agent/claude/adapter';
+import { CodexAdapter } from '@/agent/codex/adapter';
+import { type AgentAvailability,AgentPreflightError } from '@/agent/preflight';
+import type { AgentAdapter } from '@/agent/types';
+import type { AppPaths } from '@/config/app-paths';
+import type { AgentKind, ProfileConfig } from '@/config/profile-schema';
+
 import type { AcquiredRuntimeLock } from './locks';
 
 /**

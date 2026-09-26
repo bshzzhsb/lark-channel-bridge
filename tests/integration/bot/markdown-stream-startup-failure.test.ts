@@ -1,13 +1,15 @@
 import type { NormalizedMessage } from '@larksuite/channel';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { realpath } from 'node:fs/promises';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { AgentEvent } from '../../../src/agent/types.js';
+
+import { createDefaultProfileConfig } from '@/config/profile-schema.js';
+import { log } from '@/core/logger.js';
+import { SessionStore } from '@/session/store.js';
+import { WorkspaceStore } from '@/workspace/store.js';
+
 import type { FakeAgentEvents } from '../../helpers/fake-agent.js';
-import { createDefaultProfileConfig } from '../../../src/config/profile-schema.js';
-import { log } from '../../../src/core/logger.js';
-import { SessionStore } from '../../../src/session/store.js';
-import { WorkspaceStore } from '../../../src/workspace/store.js';
 import { FakeAgentAdapter } from '../../helpers/fake-agent.js';
 import { createTmpProfile, type TmpProfile } from '../../helpers/tmp-profile.js';
 
@@ -27,7 +29,7 @@ vi.mock('@larksuite/channel', async (importOriginal) => {
   };
 });
 
-import { startChannel } from '../../../src/bot/channel.js';
+import { startChannel } from '@/bot/channel/index.js';
 
 interface MessageHandlerMap {
   message?: (msg: NormalizedMessage) => Promise<void> | void;

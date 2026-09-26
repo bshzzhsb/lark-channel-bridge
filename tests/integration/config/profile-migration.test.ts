@@ -1,16 +1,18 @@
-import { spawn, type ChildProcess } from 'node:child_process';
+import { afterEach, describe, expect, it } from 'vitest';
+
+import { type ChildProcess,spawn } from 'node:child_process';
 import { mkdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import { runMigrate } from '../../../src/cli/commands/migrate';
+
+import { runMigrate } from '@/cli/commands/migrate';
 import {
-  ActiveBridgeMigrationConflictError,
-  migrateV1ToV2,
   type ActiveBridgeMigrationProcess,
-} from '../../../src/config/migrate-v2';
-import type { RootConfig } from '../../../src/config/profile-schema';
-import { resolveProfileRuntime } from '../../../src/runtime/profile-runtime';
+  migrateV1ToV2,
+} from '@/config/migrate-v2';
+import type { RootConfig } from '@/config/profile-schema';
+import { resolveProfileRuntime } from '@/runtime/profile-runtime';
+
 import { writeVersionExecutable } from '../../helpers/fake-executable';
 
 const roots: string[] = [];

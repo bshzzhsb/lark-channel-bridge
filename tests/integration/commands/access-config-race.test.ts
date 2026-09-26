@@ -1,12 +1,15 @@
+import type { NormalizedMessage } from '@larksuite/channel';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { mkdir, realpath, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { NormalizedMessage } from '@larksuite/channel';
-import { ActiveRuns } from '../../../src/bot/active-runs.js';
-import type { CommandContext, Controls } from '../../../src/commands/index.js';
-import { createDefaultProfileConfig, type ProfileConfig } from '../../../src/config/profile-schema.js';
-import { SessionStore } from '../../../src/session/store.js';
-import { WorkspaceStore } from '../../../src/workspace/store.js';
+
+import { ActiveRuns } from '@/bot/active-runs.js';
+import type { CommandContext, Controls } from '@/commands/index.js';
+import { createDefaultProfileConfig, type ProfileConfig } from '@/config/profile-schema.js';
+import { SessionStore } from '@/session/store.js';
+import { WorkspaceStore } from '@/workspace/store.js';
+
 import { createFakeAgent } from '../../helpers/fake-agent.js';
 import { createFakeChannel } from '../../helpers/fake-channel.js';
 import { createTmpProfile, type TmpProfile } from '../../helpers/tmp-profile.js';
@@ -40,9 +43,9 @@ const saveGate = vi.hoisted(() => ({
   },
 }));
 
-vi.mock('../../../src/config/profile-store.js', async (importOriginal) => {
+vi.mock('@/config/profile-store.js', async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import('../../../src/config/profile-store.js')>();
+    await importOriginal<typeof import('@/config/profile-store.js')>();
   return {
     ...actual,
     saveRootConfig: vi.fn(async (...args: Parameters<typeof actual.saveRootConfig>) => {
@@ -69,7 +72,7 @@ describe('access config concurrent writes', () => {
       h.run('/invite admin @Bob', { mentions: [mention('ou-bob', 'Bob')] }),
     ]);
 
-    const { loadRootConfig } = await import('../../../src/config/profile-store.js');
+    const { loadRootConfig } = await import('@/config/profile-store.js');
     const root = await loadRootConfig(h.configPath);
     expect(root?.profiles.claude?.access.allowedUsers).toContain('ou-alice');
     expect(root?.profiles.claude?.access.admins).toEqual(
@@ -86,7 +89,7 @@ async function createHarness(): Promise<{
   const tmp = await createTmpProfile('access-config-race-');
   const configPath = join(tmp.root, 'config.json');
   const profileConfig = appConfig(await realpath(tmp.workspace));
-  const { createRootConfig } = await import('../../../src/config/profile-store.js');
+  const { createRootConfig } = await import('@/config/profile-store.js');
   await mkdir(tmp.root, { recursive: true });
   await writeFile(configPath, `${JSON.stringify(createRootConfig('claude', profileConfig), null, 2)}\n`);
 
@@ -95,7 +98,7 @@ async function createHarness(): Promise<{
   const workspaces = new WorkspaceStore(join(tmp.profile, 'workspaces.json'));
   const activeRuns = new ActiveRuns();
   const agent = createFakeAgent();
-  const { tryHandleCommand } = await import('../../../src/commands/index.js');
+  const { tryHandleCommand } = await import('@/commands/index.js');
   const controls = {
     profile: 'claude',
     profileConfig,

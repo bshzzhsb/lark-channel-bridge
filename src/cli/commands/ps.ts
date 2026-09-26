@@ -1,7 +1,7 @@
-import { SUPERVISOR_SERVICE_ID } from '../../daemon/paths';
-import { getServiceAdapter } from '../../daemon/service-adapter';
-import { readAndPrune, resolveTarget, isAlive } from '../../runtime/registry';
-import type { ProcessEntry } from '../../runtime/registry';
+import { SUPERVISOR_SERVICE_ID } from '@/daemon/paths';
+import { getServiceAdapter } from '@/daemon/service-adapter';
+import type { ProcessEntry } from '@/runtime/registry';
+import { isAlive,readAndPrune, resolveTarget } from '@/runtime/registry';
 
 /**
  * Pretty-print the list of running lark-channel-bridge processes.

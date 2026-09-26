@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { ActiveRuns } from '../../../src/bot/active-runs';
-import { ProcessPool } from '../../../src/bot/process-pool';
-import type { RunPolicyAllow } from '../../../src/policy/run-policy';
-import { RunExecutor } from '../../../src/runtime/run-executor';
+
+import { ActiveRuns } from '@/bot/active-runs';
+import { ProcessPool } from '@/bot/process-pool';
+import type { RunPolicyAllow } from '@/policy/run-policy';
+import { RunExecutor } from '@/runtime/run-executor';
+
 import { FakeAgentAdapter } from '../../helpers/fake-agent';
 
 describe('RunExecutor policy runtime options', () => {

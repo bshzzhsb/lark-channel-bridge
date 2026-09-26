@@ -1,16 +1,18 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import type { AgentAdapter, AgentRun, AgentRunOptions } from '../../../src/agent/types';
-import { ActiveRuns } from '../../../src/bot/active-runs';
-import { ProcessPool } from '../../../src/bot/process-pool';
-import { RunExecutor } from '../../../src/runtime/run-executor';
-import { RunRejected, SpawnFailed } from '../../../src/runtime/errors';
-import type { RunPolicyAllow } from '../../../src/policy/run-policy';
-import { createTmpProfile, type TmpProfile } from '../../helpers/tmp-profile';
+
+import type { AgentAdapter, AgentRun, AgentRunOptions } from '@/agent/types';
+import { ActiveRuns } from '@/bot/active-runs';
+import { ProcessPool } from '@/bot/process-pool';
+import type { RunPolicyAllow } from '@/policy/run-policy';
+import { RunRejected, SpawnFailed } from '@/runtime/errors';
+import { RunExecutor } from '@/runtime/run-executor';
+
 import {
   FakeAgentAdapter,
   type FakeAgentEvents,
   type FakeAgentRun,
 } from '../../helpers/fake-agent';
+import { createTmpProfile, type TmpProfile } from '../../helpers/tmp-profile';
 
 const cleanups: Array<() => Promise<void>> = [];
 

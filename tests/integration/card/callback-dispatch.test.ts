@@ -1,15 +1,17 @@
 import type { CardActionEvent } from '@larksuite/channel';
 import { afterEach, describe, expect, it } from 'vitest';
-import { ActiveRuns } from '../../../src/bot/active-runs.js';
-import type { ChatModeCache } from '../../../src/bot/chat-mode-cache.js';
-import { PendingQueue } from '../../../src/bot/pending-queue.js';
-import { CallbackAuth } from '../../../src/card/callback-auth.js';
-import { CallbackNonceStore } from '../../../src/card/callback-store.js';
-import { handleCardAction } from '../../../src/card/dispatcher.js';
-import type { Controls } from '../../../src/commands/index.js';
-import { createDefaultProfileConfig } from '../../../src/config/profile-schema.js';
-import { SessionStore } from '../../../src/session/store.js';
-import { WorkspaceStore } from '../../../src/workspace/store.js';
+
+import { ActiveRuns } from '@/bot/active-runs.js';
+import type { ChatModeCache } from '@/bot/chat-mode-cache.js';
+import { PendingQueue } from '@/bot/pending-queue.js';
+import { CallbackAuth } from '@/card/callback-auth.js';
+import { CallbackNonceStore } from '@/card/callback-store.js';
+import { handleCardAction } from '@/card/dispatcher.js';
+import type { Controls } from '@/commands/index.js';
+import { createDefaultProfileConfig } from '@/config/profile-schema.js';
+import { SessionStore } from '@/session/store.js';
+import { WorkspaceStore } from '@/workspace/store.js';
+
 import { FakeAgentAdapter, type FakeAgentRun } from '../../helpers/fake-agent.js';
 import { createFakeChannel, type FakeChannel } from '../../helpers/fake-channel.js';
 import { createTmpProfile, type TmpProfile } from '../../helpers/tmp-profile.js';

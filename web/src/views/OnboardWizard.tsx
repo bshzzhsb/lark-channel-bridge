@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from "react";
-import { QRCodeSVG } from "qrcode.react";
 import { CheckCircle2 } from "lucide-react";
-import { apiGet, apiPost } from "@/lib/api";
-import type { AgentKind, OnboardState } from "@/lib/types";
+import { QRCodeSVG } from "qrcode.react";
+import { useEffect, useRef, useState } from "react";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +13,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
+import { apiGet, apiPost } from "@/lib/api";
+import type { AgentKind, OnboardState } from "@/lib/types";
 
 // New-profile wizard: scan a Feishu QR to create a fresh app (same flow as the
 // CLI `registerApp` wizard). The QR renders immediately; once scanned, the user

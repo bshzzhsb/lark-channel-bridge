@@ -1,10 +1,12 @@
+import { afterEach, describe, expect, it } from 'vitest';
+
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import { resolveAppPaths } from '../../../src/config/app-paths';
-import type { AppConfig } from '../../../src/config/schema';
-import { writeLarkCliSourceProjection } from '../../../src/lark-cli/profile-projection';
+
+import { resolveAppPaths } from '@/config/app-paths';
+import type { AppConfig } from '@/config/schema';
+import { writeLarkCliSourceProjection } from '@/lark-cli/profile-projection';
 
 const roots: string[] = [];
 

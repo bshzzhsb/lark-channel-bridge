@@ -3,19 +3,21 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 import type { Readable, Writable } from 'node:stream';
-import { log } from '../../core/logger';
-import { mergeProcessEnv, spawnProcess, type SpawnedProcessByStdio } from '../../platform/spawn';
-import { buildBridgeSystemPrompt } from '../bridge-system-prompt';
-import { buildLarkChannelEnv, type LarkChannelEnvContext } from '../lark-channel-env';
-import { checkAgentAvailability, type AgentAvailability } from '../preflight';
+
+import { buildBridgeSystemPrompt } from '@/agent/bridge-system-prompt';
+import { buildLarkChannelEnv, type LarkChannelEnvContext } from '@/agent/lark-channel-env';
+import { type AgentAvailability,checkAgentAvailability } from '@/agent/preflight';
 import {
-  CLAUDE_DEFAULT_PERMISSION_MODE,
   type AgentAdapter,
   type AgentBotIdentity,
   type AgentEvent,
   type AgentRun,
   type AgentRunOptions,
-} from '../types';
+  CLAUDE_DEFAULT_PERMISSION_MODE,
+} from '@/agent/types';
+import { log } from '@/core/logger';
+import { mergeProcessEnv, type SpawnedProcessByStdio,spawnProcess } from '@/platform/spawn';
+
 import { translateEvent } from './stream-json';
 
 export interface ClaudeAdapterOptions {
@@ -137,7 +139,7 @@ export class ClaudeAdapter implements AgentAdapter {
     // Default 5s if caller didn't specify — claude often has live
     // subprocesses (lark-cli waiting for OAuth, long Bash, etc.) and the
     // old 500ms was nowhere near enough for them to flush state before the
-    // SIGKILL cascade. Callers (channel.ts, /doctor) override per-run with
+    // SIGKILL cascade. Callers (bot/channel, /doctor) override per-run with
     // a value derived from preferences.
     const stopGraceMs = opts.stopGraceMs ?? 5000;
 

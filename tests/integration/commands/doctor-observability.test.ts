@@ -1,15 +1,18 @@
+import type { NormalizedMessage } from '@larksuite/channel';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { NormalizedMessage } from '@larksuite/channel';
-import { ActiveRuns } from '../../../src/bot/active-runs';
-import { ProcessPool } from '../../../src/bot/process-pool';
-import { tryHandleCommand, type CommandContext, type Controls } from '../../../src/commands/index';
-import { createDefaultProfileConfig } from '../../../src/config/profile-schema';
-import { closeLogger, configureLogger, flushLogger } from '../../../src/core/logger';
-import { RunExecutor } from '../../../src/runtime/run-executor';
-import { SessionStore } from '../../../src/session/store';
-import { WorkspaceStore } from '../../../src/workspace/store';
+
+import { ActiveRuns } from '@/bot/active-runs';
+import { ProcessPool } from '@/bot/process-pool';
+import { type CommandContext, type Controls,tryHandleCommand } from '@/commands/index';
+import { createDefaultProfileConfig } from '@/config/profile-schema';
+import { closeLogger, configureLogger, flushLogger } from '@/core/logger';
+import { RunExecutor } from '@/runtime/run-executor';
+import { SessionStore } from '@/session/store';
+import { WorkspaceStore } from '@/workspace/store';
+
 import { FakeAgentAdapter } from '../../helpers/fake-agent';
 import { createFakeChannel } from '../../helpers/fake-channel';
 import { createTmpProfile, type TmpProfile } from '../../helpers/tmp-profile';

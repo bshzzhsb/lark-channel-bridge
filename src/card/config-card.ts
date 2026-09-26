@@ -1,7 +1,7 @@
-import { DEFAULT_MODEL, modelLabel } from '../agent/models';
-import type { KnownChat } from '../bot/lark-info';
-import type { AgentKind, LarkCliIdentityPreset, ProfileMode } from '../config/profile-schema';
-import type { CotMessagesMode, MessageReplyMode, ReplyPlacement } from '../config/schema';
+import { DEFAULT_MODEL, modelLabel } from '@/agent/models';
+import type { KnownChat } from '@/bot/lark-info';
+import type { AgentKind, LarkCliIdentityPreset, ProfileMode } from '@/config/profile-schema';
+import type { CotMessagesMode, MessageReplyMode, ReplyPlacement } from '@/config/schema';
 
 export interface ConfigFormOpts {
   /** Profile's agent kind, used in the saved summary. */

@@ -1,7 +1,8 @@
 import { access, readFile, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { withConfigFileLock } from '../config/profile-store';
-import { writeFileAtomic } from '../platform/atomic-write';
+
+import { withConfigFileLock } from '@/config/profile-store';
+import { writeFileAtomic } from '@/platform/atomic-write';
 
 interface OverlayMarker {
   hadConfig: boolean;

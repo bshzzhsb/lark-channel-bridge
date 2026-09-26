@@ -1,20 +1,22 @@
-import { isComplete } from '../../config/schema';
 import { createInterface } from 'node:readline';
-import { paths } from '../../config/paths';
-import { loadRootConfig, readActiveProfile } from '../../config/profile-store';
-import { daemonStderrPath, daemonStdoutPath, SUPERVISOR_SERVICE_ID } from '../../daemon/paths';
+
+import { preFlightChecks } from '@/cli/preflight';
+import { paths } from '@/config/paths';
+import { loadRootConfig, readActiveProfile } from '@/config/profile-store';
+import { isComplete } from '@/config/schema';
+import { daemonStderrPath, daemonStdoutPath, SUPERVISOR_SERVICE_ID } from '@/daemon/paths';
 import {
   getServiceAdapter,
   type ServiceAdapter,
   type ServiceResultLike,
-} from '../../daemon/service-adapter';
+} from '@/daemon/service-adapter';
+import { checkRuntimeLock, type RuntimeLockMeta } from '@/runtime/locks';
 import {
   materializeEnvSecretForService,
   resolveProfileRuntime,
-} from '../../runtime/profile-runtime';
-import { readAndPrune, type ProcessEntry } from '../../runtime/registry';
-import { checkRuntimeLock, type RuntimeLockMeta } from '../../runtime/locks';
-import { preFlightChecks } from '../preflight';
+} from '@/runtime/profile-runtime';
+import { type ProcessEntry,readAndPrune } from '@/runtime/registry';
+
 import { promptAndStopActiveBridgeMigrationConflict } from './migrate';
 import { stopProcessEntry, type StopProcessEntryResult } from './ps';
 

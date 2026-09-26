@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
-import type { ProfileConfig, SandboxMode } from '../config/profile-schema';
-import { canonicalizeJcs } from '../session/jcs';
+
+import type { ProfileConfig, SandboxMode } from '@/config/profile-schema';
+import { canonicalizeJcs } from '@/session/jcs';
 
 export interface FingerprintInputV2 {
   cwdRealpath: string;

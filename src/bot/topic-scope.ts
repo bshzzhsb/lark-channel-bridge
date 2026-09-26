@@ -1,5 +1,5 @@
-import type { SessionCatalog } from '../session/catalog';
-import type { SessionStore } from '../session/store';
+import type { SessionCatalog } from '@/session/catalog';
+import type { SessionStore } from '@/session/store';
 
 /** Stable identity for a topic created by replying to an ordinary message. */
 export function rootTopicScope(chatId: string, rootMessageId: string): string {

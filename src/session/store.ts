@@ -1,7 +1,8 @@
 import { readFile } from 'node:fs/promises';
-import { paths } from '../config/paths';
-import { log } from '../core/logger';
-import { writeFileAtomic } from '../platform/atomic-write';
+
+import { paths } from '@/config/paths';
+import { log } from '@/core/logger';
+import { writeFileAtomic } from '@/platform/atomic-write';
 
 export interface SessionEntry {
   /** This scope belongs to a topic opened by replying to its root message. */
@@ -76,6 +77,15 @@ export class SessionStore {
 
   getRaw(chatId: string): SessionEntry | undefined {
     return this.data[chatId];
+  }
+
+  /** Persisted topic anchors, including ones retained after /new. */
+  topicRootMessageIds(chatId: string): string[] {
+    const prefix = `${chatId}:root:`;
+    return Object.entries(this.data)
+      .filter(([scope, entry]) => scope.startsWith(prefix) && entry.topicRoot)
+      .sort((a, b) => b[1].updatedAt - a[1].updatedAt)
+      .map(([scope]) => scope.slice(prefix.length));
   }
 
   markTopicRoot(scope: string): void {

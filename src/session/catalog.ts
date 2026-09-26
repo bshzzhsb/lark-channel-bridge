@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { open, readFile, rename, mkdir } from 'node:fs/promises';
+import { mkdir,open, readFile, rename } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { paths } from '../config/paths';
-import { log } from '../core/logger';
-import type { AgentCapabilityId } from '../agent/capability';
+
+import type { AgentCapabilityId } from '@/agent/capability';
+import { paths } from '@/config/paths';
+import { log } from '@/core/logger';
 
 export type CatalogAgentId = AgentCapabilityId;
 export type SessionCatalogStatus = 'active' | 'archived';

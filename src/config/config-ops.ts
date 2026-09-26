@@ -1,17 +1,19 @@
 import { dirname } from 'node:path';
+
+import { log, reportMetric } from '@/core/logger';
+import { applyLarkCliIdentityPolicy } from '@/lark-cli/identity-policy';
+
 import { resolveAppPaths } from './app-paths';
 import { setSecret } from './keystore';
+import type { ProfileAccess, ProfileConfig, ProfileMode } from './profile-schema';
 import {
   loadRootConfig,
   runtimeProfileConfig,
   saveRootConfig,
   withConfigFileLock,
 } from './profile-store';
+import { type AppConfig, type AppPreferences,secretKeyForApp } from './schema';
 import { saveConfig } from './store';
-import { secretKeyForApp, type AppConfig, type AppPreferences } from './schema';
-import type { ProfileAccess, ProfileConfig, ProfileMode } from './profile-schema';
-import { applyLarkCliIdentityPolicy } from '../lark-cli/identity-policy';
-import { log, reportMetric } from '../core/logger';
 
 /**
  * The mutable per-profile runtime state these ops read and keep in sync. The

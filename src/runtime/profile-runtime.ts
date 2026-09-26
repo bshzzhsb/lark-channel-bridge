@@ -1,22 +1,32 @@
+import * as p from '@clack/prompts';
+
 import { mkdir, readFile, realpath } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import * as p from '@clack/prompts';
-import { runRegistrationWizard } from '../bot/wizard';
-import { detectInstalledAgents, type DetectedAgent } from '../cli/agent-detection';
+
+import { runRegistrationWizard } from '@/bot/wizard';
+import { type DetectedAgent,detectInstalledAgents } from '@/cli/agent-detection';
 import {
   createBootstrapCodexConfig,
   createBootstrapProfileConfig,
   resolveBootstrapWorkspace,
-} from '../cli/profile-bootstrap';
-import { promptPassword } from '../cli/prompt';
-import { setSecret } from '../config/keystore';
-import { resolveAppPaths, type AppPaths } from '../config/app-paths';
+} from '@/cli/profile-bootstrap';
+import { promptPassword } from '@/cli/prompt';
+import { type AppPaths,resolveAppPaths } from '@/config/app-paths';
+import { setSecret } from '@/config/keystore';
 import {
   ActiveBridgeMigrationConflictError,
   collectLegacyDefaultWorkspace,
   migrateV1ToV2,
   type MigrateV2Options,
-} from '../config/migrate-v2';
+} from '@/config/migrate-v2';
+import { permissionsToLegacySandbox } from '@/config/permissions';
+import {
+  type AgentKind,
+  createDefaultProfileConfig,
+  type CreateDefaultProfileConfigInput,
+  type ProfileConfig,
+  type RootConfig,
+} from '@/config/profile-schema';
 import {
   agentKindFromString,
   createRootConfig,
@@ -27,30 +37,22 @@ import {
   runtimeProfileConfig,
   saveRootConfig,
   writeActiveProfile,
-} from '../config/profile-store';
-import {
-  createDefaultProfileConfig,
-  type AgentKind,
-  type CreateDefaultProfileConfigInput,
-  type ProfileConfig,
-  type RootConfig,
-} from '../config/profile-schema';
-import { permissionsToLegacySandbox } from '../config/permissions';
-import type { AppConfig, SecretInput, TenantBrand } from '../config/schema';
-import { isComplete, isSecretRef, secretKeyForApp } from '../config/schema';
-import { resolveAppSecret } from '../config/secret-resolver';
+} from '@/config/profile-store';
+import type { AppConfig, SecretInput, TenantBrand } from '@/config/schema';
+import { isComplete, isSecretRef, secretKeyForApp } from '@/config/schema';
+import { resolveAppSecret } from '@/config/secret-resolver';
 import {
   buildEncryptedAccountConfig,
   ensureSecretsGetterWrapper,
   loadConfig,
   saveConfig,
-} from '../config/store';
-import { log } from '../core/logger';
+} from '@/config/store';
+import { log } from '@/core/logger';
 import {
   hasLegacyLarkCliSourceOverlay,
   recoverLegacyLarkCliSourceOverlay,
-} from '../lark-cli/legacy-source-overlay';
-import { validateAppCredentials } from '../utils/feishu-auth';
+} from '@/lark-cli/legacy-source-overlay';
+import { validateAppCredentials } from '@/utils/feishu-auth';
 
 export interface ResolveProfileRuntimeOptions {
   config?: string;

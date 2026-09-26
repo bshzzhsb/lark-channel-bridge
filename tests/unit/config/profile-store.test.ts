@@ -1,12 +1,14 @@
+import { afterEach, describe, expect, it } from 'vitest';
+
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+
 import {
   createDefaultProfileConfig,
   type RootConfig,
-} from '../../../src/config/profile-schema';
-import { createRootConfig, loadRootConfig, saveRootConfig } from '../../../src/config/profile-store';
+} from '@/config/profile-schema';
+import { createRootConfig, loadRootConfig, saveRootConfig } from '@/config/profile-store';
 
 const roots: string[] = [];
 

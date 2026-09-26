@@ -1,5 +1,5 @@
-import type { ProfileConfig } from '../config/profile-schema';
-import { getRequireMentionInGroup, type AppConfig } from '../config/schema';
+import type { ProfileConfig } from '@/config/profile-schema';
+import { type AppConfig,getRequireMentionInGroup } from '@/config/schema';
 export { accessPolicyDigest } from './fingerprint';
 
 export type OwnerRefreshState = 'ok' | 'failed' | 'unknown';

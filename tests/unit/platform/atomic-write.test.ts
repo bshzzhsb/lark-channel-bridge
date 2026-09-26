@@ -1,9 +1,11 @@
-import { readdir, readFile, rm } from 'node:fs/promises';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
-import { mkdtemp } from 'node:fs/promises';
 import { afterEach, describe, expect, it } from 'vitest';
-import { writeFileAtomic } from '../../../src/platform/atomic-write.js';
+
+import { readdir, readFile, rm } from 'node:fs/promises';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { writeFileAtomic } from '@/platform/atomic-write.js';
 
 const cleanups: Array<() => Promise<void>> = [];
 

@@ -9,8 +9,8 @@ vi.mock('node:child_process', async (importOriginal) => ({
   spawnSync: mocks.spawnSync,
 }));
 
-const { getServiceAdapter } = await import('../../../src/daemon/service-adapter');
-const { launchAgentLabel } = await import('../../../src/daemon/paths');
+const { getServiceAdapter } = await import('@/daemon/service-adapter');
+const { launchAgentLabel } = await import('@/daemon/paths');
 
 const realPlatform = process.platform;
 function forcePlatform(platform: string): void {

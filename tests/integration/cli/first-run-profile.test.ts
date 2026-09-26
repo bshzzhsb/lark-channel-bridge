@@ -1,9 +1,12 @@
+import { afterEach, describe, expect, it } from 'vitest';
+
 import { mkdir, mkdtemp, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import { detectInstalledAgents, resolveExecutablePath } from '../../../src/cli/agent-detection';
-import { createBootstrapProfileConfig } from '../../../src/cli/profile-bootstrap';
+
+import { detectInstalledAgents, resolveExecutablePath } from '@/cli/agent-detection';
+import { createBootstrapProfileConfig } from '@/cli/profile-bootstrap';
+
 import { writeVersionExecutable } from '../../helpers/fake-executable';
 
 const roots: string[] = [];

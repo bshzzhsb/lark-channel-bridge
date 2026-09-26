@@ -1,7 +1,9 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import {
   closeLogger,
   configureLogger,
@@ -10,9 +12,10 @@ import {
   log,
   reportError,
   reportMetric,
-} from '../../../src/core/logger.js';
-import { loadTelemetryAdapter } from '../../../src/core/telemetry.js';
-import { REQUIRED_OBSERVABILITY_EVENTS } from '../../../src/observability/events.js';
+} from '@/core/logger.js';
+import { loadTelemetryAdapter } from '@/core/telemetry.js';
+import { REQUIRED_OBSERVABILITY_EVENTS } from '@/observability/events.js';
+
 import { createTmpProfile } from '../../helpers/tmp-profile.js';
 
 const cleanups: Array<() => Promise<void>> = [];

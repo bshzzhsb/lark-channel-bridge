@@ -1,22 +1,24 @@
+import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 import type { Readable, Writable } from 'node:stream';
-import { join } from 'node:path';
-import type { SandboxMode } from '../../config/profile-schema';
-import { log } from '../../core/logger';
-import { mergeProcessEnv, spawnProcess, type SpawnedProcessByStdio } from '../../platform/spawn';
-import { SpawnFailed } from '../../runtime/errors';
-import { prefixBridgeSystemPrompt } from '../bridge-system-prompt';
-import { buildLarkChannelEnv, type LarkChannelEnvContext } from '../lark-channel-env';
-import { checkAgentAvailability, type AgentAvailability } from '../preflight';
+
+import { prefixBridgeSystemPrompt } from '@/agent/bridge-system-prompt';
+import { buildLarkChannelEnv, type LarkChannelEnvContext } from '@/agent/lark-channel-env';
+import { type AgentAvailability,checkAgentAvailability } from '@/agent/preflight';
 import type {
   AgentAdapter,
   AgentBotIdentity,
   AgentEvent,
   AgentRun,
   AgentRunOptions,
-} from '../types';
+} from '@/agent/types';
+import type { SandboxMode } from '@/config/profile-schema';
+import { log } from '@/core/logger';
+import { mergeProcessEnv, type SpawnedProcessByStdio,spawnProcess } from '@/platform/spawn';
+import { SpawnFailed } from '@/runtime/errors';
+
 import { buildCodexArgs } from './argv';
-import { CodexJsonlTranslator, type CodexFinishReason } from './jsonl';
+import { type CodexFinishReason,CodexJsonlTranslator } from './jsonl';
 
 export interface CodexAdapterOptions {
   binary: string;

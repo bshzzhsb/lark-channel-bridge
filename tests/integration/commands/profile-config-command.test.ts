@@ -1,24 +1,27 @@
+import type { NormalizedMessage } from '@larksuite/channel';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import type { NormalizedMessage } from '@larksuite/channel';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ActiveRuns } from '../../../src/bot/active-runs';
-import { tryHandleCommand, type CommandContext, type Controls } from '../../../src/commands/index';
-import { resolveAppPaths } from '../../../src/config/app-paths';
-import { getSecret, listSecretIds } from '../../../src/config/keystore';
+
+import { ActiveRuns } from '@/bot/active-runs';
+import { type CommandContext, type Controls,tryHandleCommand } from '@/commands/index';
+import { resolveAppPaths } from '@/config/app-paths';
+import { getSecret, listSecretIds } from '@/config/keystore';
 import {
   createDefaultProfileConfig,
   type RootConfig,
-} from '../../../src/config/profile-schema';
-import { runtimeProfileConfig } from '../../../src/config/profile-store';
-import { getMessageReplyMode, getRequireMentionInGroup, secretKeyForApp } from '../../../src/config/schema';
-import { SessionStore } from '../../../src/session/store';
-import { WorkspaceStore } from '../../../src/workspace/store';
+} from '@/config/profile-schema';
+import { runtimeProfileConfig } from '@/config/profile-store';
+import { getMessageReplyMode, getRequireMentionInGroup, secretKeyForApp } from '@/config/schema';
+import { SessionStore } from '@/session/store';
+import { WorkspaceStore } from '@/workspace/store';
+
 import { FakeAgentAdapter } from '../../helpers/fake-agent';
 import { createFakeChannel } from '../../helpers/fake-channel';
 
-vi.mock('../../../src/utils/feishu-auth', () => ({
+vi.mock('@/utils/feishu-auth', () => ({
   validateAppCredentials: vi.fn(async () => ({
     ok: true,
     botName: 'Updated Bot',
@@ -30,9 +33,9 @@ const identityPolicyMocks = vi.hoisted(() => ({
   applyLarkCliIdentityPolicy: vi.fn(async () => true),
 }));
 
-vi.mock('../../../src/lark-cli/identity-policy', async () => {
-  const actual = await vi.importActual<typeof import('../../../src/lark-cli/identity-policy')>(
-    '../../../src/lark-cli/identity-policy',
+vi.mock('@/lark-cli/identity-policy', async () => {
+  const actual = await vi.importActual<typeof import('@/lark-cli/identity-policy')>(
+    '@/lark-cli/identity-policy',
   );
   return {
     ...actual,

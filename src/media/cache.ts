@@ -1,17 +1,20 @@
+import type { LarkChannel, ResourceDescriptor } from '@larksuite/channel';
+
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { mkdir, readdir, rename, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { LarkChannel, ResourceDescriptor } from '@larksuite/channel';
-import { paths } from '../config/paths';
-import { log } from '../core/logger';
+
+import { paths } from '@/config/paths';
+import { log } from '@/core/logger';
+
 import {
-  normalizeAttachments,
-  safeExtensionForMime,
   type AttachmentCandidate,
   type AttachmentKind,
   type AttachmentPolicyOptions,
+  normalizeAttachments,
   type NormalizedAttachment,
+  safeExtensionForMime,
 } from './attachment';
 
 export type LocalAttachment = NormalizedAttachment;

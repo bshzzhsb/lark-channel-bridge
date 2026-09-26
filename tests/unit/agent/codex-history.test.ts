@@ -1,12 +1,14 @@
+import { afterEach, describe, expect, it } from 'vitest';
+
 import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+
+import { buildAgentPrompt } from '@/agent/prompt.js';
 import {
   CodexHistoryError,
   listCodexThreadHistory,
-} from '../../../src/session/codex-history.js';
-import { buildAgentPrompt } from '../../../src/agent/prompt.js';
+} from '@/session/codex-history.js';
 
 interface FakeCodex {
   dir: string;

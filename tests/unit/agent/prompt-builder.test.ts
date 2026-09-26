@@ -1,7 +1,9 @@
+import { describe, expect, it } from 'vitest';
+
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
-import { buildAgentPrompt } from '../../../src/agent/prompt';
+
+import { buildAgentPrompt } from '@/agent/prompt';
 
 describe('agent prompt builder', () => {
   it('serializes untrusted message, quote, card, and comment text without closing bridge tags', () => {
@@ -100,7 +102,7 @@ describe('agent prompt builder', () => {
   });
 
   it('keeps bridge agents inside the current lark-channel profile by default', () => {
-    const source = readFileSync(join(process.cwd(), 'src/bot/channel.ts'), 'utf8');
+    const source = readFileSync(join(process.cwd(), 'src/bot/im/prompt.ts'), 'utf8');
 
     expect(source).not.toContain('命令必须写成 env -u LARK_CHANNEL');
     expect(source).not.toContain('env -u LARK_CHANNEL lark-cli');

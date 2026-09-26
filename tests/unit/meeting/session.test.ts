@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { MEETING_DEFAULTS, type MeetingConfig } from '../../../src/config/profile-schema';
-import { MeetingSession } from '../../../src/meeting/session';
-import { unpackActivity } from '../../../src/meeting/types';
-import { matchTrigger, triggerPrefixes } from '../../../src/meeting/orchestrator';
-import type { RawActivityItem, VcRequestClient } from '../../../src/meeting/api';
+
+import { MEETING_DEFAULTS, type MeetingConfig } from '@/config/profile-schema';
+import type { RawActivityItem, VcRequestClient } from '@/meeting/api';
+import { matchTrigger, triggerPrefixes } from '@/meeting/orchestrator';
+import { MeetingSession } from '@/meeting/session';
+import { unpackActivity } from '@/meeting/types';
 
 const noopClient: VcRequestClient = { request: vi.fn(async () => ({ code: 0, data: {} }) as never) };
 

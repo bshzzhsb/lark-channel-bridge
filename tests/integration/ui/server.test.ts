@@ -1,17 +1,19 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
 import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createDefaultProfileConfig } from '../../../src/config/profile-schema';
+
+import { createDefaultProfileConfig } from '@/config/profile-schema';
 import {
   createRootConfig,
   loadRootConfig,
   runtimeProfileConfig,
   saveRootConfig,
   writeActiveProfile,
-} from '../../../src/config/profile-store';
-import { startUiServer } from '../../../src/ui/server';
-import type { UiServerHandle, UiSupervisor } from '../../../src/ui/types';
+} from '@/config/profile-store';
+import { startUiServer } from '@/ui/server';
+import type { UiServerHandle, UiSupervisor } from '@/ui/types';
 
 const app = { id: 'cli_test', secret: '${APP_SECRET}', tenant: 'feishu' as const };
 

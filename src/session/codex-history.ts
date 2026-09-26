@@ -1,11 +1,13 @@
+import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 import type { Readable, Writable } from 'node:stream';
-import { join } from 'node:path';
+
 import {
   mergeProcessEnv,
-  spawnProcess,
   type SpawnedProcessByStdio,
-} from '../platform/spawn';
+  spawnProcess,
+} from '@/platform/spawn';
+
 import { normalizeSessionPreview } from './preview';
 
 type CodexAppServerChild = SpawnedProcessByStdio<Writable, Readable, Readable>;

@@ -1,5 +1,5 @@
-import type { AgentAttachment as PolicyAttachment } from '../policy/run-policy';
-import type { BridgePromptAttachment } from '../agent/prompt';
+import type { BridgePromptAttachment } from '@/agent/prompt';
+import type { AgentAttachment as PolicyAttachment } from '@/policy/run-policy';
 
 export type AttachmentKind = 'image' | 'file' | 'audio' | 'video' | 'sticker';
 export type AttachmentDecision = 'accepted' | 'rejected' | 'skipped';

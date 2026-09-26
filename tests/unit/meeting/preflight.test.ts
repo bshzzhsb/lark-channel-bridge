@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
+
 import {
   checkMeetingPreflight,
   classifyPreflight,
   MEETING_REQUIRED_EVENTS,
   MEETING_REQUIRED_SCOPES,
   type PreflightExec,
-} from '../../../src/meeting/preflight';
+} from '@/meeting/preflight';
 
 /** The exact error lark-cli returns when the app identity lacks the scope. */
 const SCOPE_ERROR = {

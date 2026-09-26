@@ -1,9 +1,10 @@
 import { chmod, mkdir } from 'node:fs/promises';
-import type { AppPaths } from '../config/app-paths';
-import type { AppConfig, ProviderConfig, SecretRef, SecretsConfig } from '../config/schema';
-import { isSecretRef } from '../config/schema';
-import { ensureSecretsGetterWrapper } from '../config/store';
-import { writeFileAtomic } from '../platform/atomic-write';
+
+import type { AppPaths } from '@/config/app-paths';
+import type { AppConfig, ProviderConfig, SecretRef, SecretsConfig } from '@/config/schema';
+import { isSecretRef } from '@/config/schema';
+import { ensureSecretsGetterWrapper } from '@/config/store';
+import { writeFileAtomic } from '@/platform/atomic-write';
 
 export async function writeLarkCliSourceProjection(
   cfg: AppConfig,

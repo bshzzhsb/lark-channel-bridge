@@ -1,5 +1,6 @@
 import type { LarkChannel } from '@larksuite/channel';
-import { log } from '../core/logger';
+
+import { log } from '@/core/logger';
 
 /**
  * Scope that lets the app receive group messages that DON'T @ the bot.

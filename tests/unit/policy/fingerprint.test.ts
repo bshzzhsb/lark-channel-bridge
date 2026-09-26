@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { createDefaultProfileConfig } from '../../../src/config/profile-schema';
+
+import { createDefaultProfileConfig } from '@/config/profile-schema';
 import {
   accessPolicyDigest,
   attachmentPolicyShapeDigest,
+  type FingerprintInputV2,
   policyFingerprint,
   resourceScopeDigest,
-  type FingerprintInputV2,
-} from '../../../src/policy/fingerprint';
-import { canonicalizeJcs } from '../../../src/session/jcs';
+} from '@/policy/fingerprint';
+import { canonicalizeJcs } from '@/session/jcs';
 
 describe('policy fingerprint', () => {
   it('canonicalizes JSON with sorted object keys while preserving array order', () => {

@@ -1,5 +1,6 @@
 import type { LarkChannel } from '@larksuite/channel';
-import { log } from '../core/logger';
+
+import { log } from '@/core/logger';
 
 export interface KnownChat {
   id: string;

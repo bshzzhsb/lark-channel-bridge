@@ -1,25 +1,27 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { resolveAppPaths } from '../../../src/config/app-paths';
+
+import {
+  removeAppSecret,
+  resolveSecretAcrossProfiles,
+  setAppSecret,
+} from '@/cli/commands/secrets';
+import { resolveAppPaths } from '@/config/app-paths';
 import {
   clearKeystoreDerivedKeyCache,
   getSecret,
   keystoreDerivedKeyCacheSize,
   setSecret,
-} from '../../../src/config/keystore';
+} from '@/config/keystore';
 import {
-  createDefaultProfileConfig,
   type AgentKind,
+  createDefaultProfileConfig,
   type RootConfig,
-} from '../../../src/config/profile-schema';
-import { secretKeyForApp } from '../../../src/config/schema';
-import {
-  removeAppSecret,
-  resolveSecretAcrossProfiles,
-  setAppSecret,
-} from '../../../src/cli/commands/secrets';
+} from '@/config/profile-schema';
+import { secretKeyForApp } from '@/config/schema';
 
 const roots: string[] = [];
 

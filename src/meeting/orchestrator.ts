@@ -1,17 +1,19 @@
 import type { LarkChannel } from '@larksuite/channel';
-import type { AgentEvent } from '../agent/types';
-import { claudeCapability, codexCapability } from '../agent/capability';
-import type { Controls } from '../commands';
-import { log } from '../core/logger';
-import type { RunExecutor } from '../runtime/run-executor';
-import type { ActiveRuns } from '../bot/active-runs';
-import type { SessionCatalog } from '../session/catalog';
-import type { SessionStore } from '../session/store';
-import type { WorkspaceStore } from '../workspace/store';
-import { startRunFlow } from '../bot/run-flow';
+
+import { claudeCapability, codexCapability } from '@/agent/capability';
+import type { AgentEvent } from '@/agent/types';
+import type { ActiveRuns } from '@/bot/active-runs';
+import { startRunFlow } from '@/bot/run-flow';
+import type { Controls } from '@/commands';
+import type { MeetingSummaryTarget } from '@/config/profile-schema';
+import { log } from '@/core/logger';
+import type { RunExecutor } from '@/runtime/run-executor';
+import type { SessionCatalog } from '@/session/catalog';
+import type { SessionStore } from '@/session/store';
+import type { WorkspaceStore } from '@/workspace/store';
+
 import { describeMeetingError } from './manager';
 import type { MeetingSession } from './session';
-import type { MeetingSummaryTarget } from '../config/profile-schema';
 import type { ChatEvent, MeetingEvent } from './types';
 
 /**

@@ -1,25 +1,25 @@
-import type { AgentCapability } from '../agent/capability';
-import { resolveModelArg } from '../agent/models';
-import type { AgentEvent } from '../agent/types';
-import type { ProfileConfig } from '../config/profile-schema';
-import type { AccessDecision } from '../policy/access';
+import type { AgentCapability } from '@/agent/capability';
+import { resolveModelArg } from '@/agent/models';
+import type { AgentEvent } from '@/agent/types';
+import type { ProfileConfig } from '@/config/profile-schema';
+import type { AccessDecision } from '@/policy/access';
 import {
-  evaluateRunPolicy,
   type AgentAttachment,
+  evaluateRunPolicy,
   type RunPolicyAllow,
   type RunPolicyReject,
   type ScopeContext,
-} from '../policy/run-policy';
+} from '@/policy/run-policy';
 import {
   resolveWorkingDirectory,
   type WorkingDirectoryRejectReason,
   type WorkingDirectoryResolveResult,
-} from '../policy/workspace';
-import type { RunExecution, RunExecutor } from '../runtime/run-executor';
-import { RunRejected, type RunRejectedCode } from '../runtime/errors';
-import type { SessionCatalog } from '../session/catalog';
-import type { SessionStore } from '../session/store';
-import type { WorkspaceStore } from '../workspace/store';
+} from '@/policy/workspace';
+import { RunRejected, type RunRejectedCode } from '@/runtime/errors';
+import type { RunExecution, RunExecutor } from '@/runtime/run-executor';
+import type { SessionCatalog } from '@/session/catalog';
+import type { SessionStore } from '@/session/store';
+import type { WorkspaceStore } from '@/workspace/store';
 
 export interface StartRunFlowInput {
   scopeId: string;

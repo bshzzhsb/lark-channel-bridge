@@ -1,9 +1,11 @@
-import { mkdir, readFile, rm, stat } from 'node:fs/promises';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
-import { mkdtemp } from 'node:fs/promises';
 import { afterEach, describe, expect, it } from 'vitest';
-import { ensureSecretsGetterWrapper } from '../../../src/config/store.js';
+
+import { mkdir, readFile, rm, stat } from 'node:fs/promises';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { ensureSecretsGetterWrapper } from '@/config/store.js';
 
 const cleanups: Array<() => Promise<void>> = [];
 

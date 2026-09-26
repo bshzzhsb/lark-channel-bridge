@@ -1,9 +1,8 @@
-import { useEffect, useState } from "react";
 import { ChevronRight } from "lucide-react";
-import { apiGet, apiPost } from "@/lib/api";
-import type { ProfileInfo } from "@/lib/types";
-import { Button } from "@/components/ui/button";
+import { useEffect, useState } from "react";
+
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +12,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/sonner";
+import { apiGet, apiPost } from "@/lib/api";
+import type { ProfileInfo } from "@/lib/types";
+
 import { OnboardWizard } from "./OnboardWizard";
 
 export function ProfilesView({ onOpen }: { onOpen: (profile: string) => void }) {

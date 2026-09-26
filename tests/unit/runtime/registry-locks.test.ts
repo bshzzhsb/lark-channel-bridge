@@ -1,16 +1,18 @@
+import { afterEach, describe, expect, it } from 'vitest';
+
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import { resolveAppPaths } from '../../../src/config/app-paths';
-import { runtimeLockMetaFile, withProfileAndAppLocks } from '../../../src/runtime/locks';
+
+import { resolveAppPaths } from '@/config/app-paths';
+import { runtimeLockMetaFile, withProfileAndAppLocks } from '@/runtime/locks';
 import {
+  type ProcessEntry,
   readAndPrune,
   register,
   sameAppLiveOthers,
   unregisterSync,
-  type ProcessEntry,
-} from '../../../src/runtime/registry';
+} from '@/runtime/registry';
 
 const roots: string[] = [];
 

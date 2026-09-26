@@ -1,9 +1,11 @@
+import type { NormalizedMessage } from '@larksuite/channel';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getMessageReplyMode, getRequireMentionInGroup } from '../../../src/config/schema.js';
-import { PendingQueue } from '../../../src/bot/pending-queue.js';
-import type { NormalizedMessage } from '@larksuite/channel';
+
+import { PendingQueue } from '@/bot/pending-queue.js';
+import { getMessageReplyMode, getRequireMentionInGroup } from '@/config/schema.js';
 
 describe('Claude IM regression boundaries', () => {
   afterEach(() => {
@@ -54,9 +56,12 @@ describe('Claude IM regression boundaries', () => {
   });
 
   it('documents the private intake policy that drops @all and undirected group chatter', async () => {
-    const source = await readFile(join(process.cwd(), 'src/bot/channel.ts'), 'utf8');
+    const [sdk, source] = await Promise.all([
+      readFile(join(process.cwd(), 'src/bot/channel/sdk.ts'), 'utf8'),
+      readFile(join(process.cwd(), 'src/bot/im/intake.ts'), 'utf8'),
+    ]);
 
-    expect(source).toContain('respondToMentionAll: false');
+    expect(sdk).toContain('respondToMentionAll: false');
     // The group-mention gate honors a per-chat override first, then the global
     // setting (both resolved by requireMentionForChat).
     expect(source).toContain('requireMentionForChat(controls.profileConfig, controls.cfg, msg.chatId)');

@@ -3,6 +3,9 @@ import { existsSync } from 'node:fs';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { userInfo } from 'node:os';
 import { dirname } from 'node:path';
+
+import { paths } from '@/config/paths';
+
 import {
   daemonLogDir,
   daemonStderrPath,
@@ -10,7 +13,6 @@ import {
   launchAgentLabel,
   launchAgentPlistPath,
 } from './paths';
-import { paths } from '../config/paths';
 
 export interface PlistInputs {
   /** Absolute path to the node binary that should run the bridge. */

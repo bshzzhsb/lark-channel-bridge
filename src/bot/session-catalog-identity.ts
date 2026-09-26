@@ -1,11 +1,13 @@
 import type { NormalizedMessage } from '@larksuite/channel';
-import { claudeCapability, codexCapability } from '../agent/capability';
-import type { Controls } from '../commands';
-import type { AccessDecision } from '../policy/access';
-import { evaluateRunPolicy } from '../policy/run-policy';
-import { resolveWorkingDirectory } from '../policy/workspace';
-import type { SessionCatalogIdentity } from '../session/catalog';
-import type { WorkspaceStore } from '../workspace/store';
+
+import { claudeCapability, codexCapability } from '@/agent/capability';
+import type { Controls } from '@/commands';
+import type { AccessDecision } from '@/policy/access';
+import { evaluateRunPolicy } from '@/policy/run-policy';
+import { resolveWorkingDirectory } from '@/policy/workspace';
+import type { SessionCatalogIdentity } from '@/session/catalog';
+import type { WorkspaceStore } from '@/workspace/store';
+
 import type { ChatMode } from './chat-mode-cache';
 import { policyThreadId } from './topic-scope';
 

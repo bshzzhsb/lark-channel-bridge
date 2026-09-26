@@ -1,14 +1,16 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createDefaultProfileConfig } from '../../../src/config/profile-schema';
+
+import { createDefaultProfileConfig } from '@/config/profile-schema';
 import {
   createRootConfig,
   loadRootConfig,
   saveRootConfig,
-} from '../../../src/config/profile-store';
-import { Supervisor } from '../../../src/runtime/supervisor';
+} from '@/config/profile-store';
+import { Supervisor } from '@/runtime/supervisor';
 
 const roots: string[] = [];
 const started: string[] = [];

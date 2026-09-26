@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import type { AgentEvent } from '../../agent/types';
-import type { CotMessagesMode } from '../../config/schema';
+
+import type { AgentEvent } from '@/agent/types';
+import type { CotMessagesMode } from '@/config/schema';
+
+import type { CotClient } from './client';
 import { consumeCotEvents } from './events';
 import { CotPublisher } from './publisher';
-import type { CotClient } from './client';
 import type { CotRef } from './types';
 
 interface RunCotContext {

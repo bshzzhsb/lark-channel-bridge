@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
-import { log } from '../core/logger';
-import { writeFileAtomic } from '../platform/atomic-write';
+
+import { log } from '@/core/logger';
+import { writeFileAtomic } from '@/platform/atomic-write';
 
 type NonceState = 'used' | 'revoked';
 

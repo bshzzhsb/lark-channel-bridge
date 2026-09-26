@@ -1,6 +1,7 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { NormalizedMessage } from '@larksuite/channel';
-import { PendingQueue } from '../../../src/bot/pending-queue';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { PendingQueue } from '@/bot/pending-queue';
 
 afterEach(() => vi.useRealTimers());
 

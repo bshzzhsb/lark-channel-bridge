@@ -1,4 +1,4 @@
-import { log } from '../core/logger';
+import { log } from '@/core/logger';
 
 /**
  * REST layer for the in-meeting agent (path 2 / TAT — the bot joins as a real

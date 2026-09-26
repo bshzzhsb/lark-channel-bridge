@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import type { AgentAdapter, AgentEvent, AgentRun } from '../agent/types';
-import { ActiveRuns, type RunHandle } from '../bot/active-runs';
-import { ProcessPool } from '../bot/process-pool';
-import type { RunPolicyAllow } from '../policy/run-policy';
-import { log } from '../core/logger';
+
+import type { AgentAdapter, AgentEvent, AgentRun } from '@/agent/types';
+import { ActiveRuns, type RunHandle } from '@/bot/active-runs';
+import { ProcessPool } from '@/bot/process-pool';
+import { log } from '@/core/logger';
+import type { RunPolicyAllow } from '@/policy/run-policy';
+
 import { RunRejected, SpawnFailed } from './errors';
 
 export interface RunExecutorDeps {

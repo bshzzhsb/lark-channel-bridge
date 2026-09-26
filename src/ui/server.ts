@@ -1,21 +1,23 @@
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { randomBytes } from 'node:crypto';
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { log } from '../core/logger';
-import { readActiveProfile } from '../config/profile-store';
-import type { MutableProfileState } from '../config/config-ops';
-import consoleHtml from './generated/index.html';
+
+import type { Controls } from '@/commands';
+import type { MutableProfileState } from '@/config/config-ops';
+import { readActiveProfile } from '@/config/profile-store';
+import { log } from '@/core/logger';
+
 import {
   addBotToChatView,
-  meetingJoin,
-  meetingPreflight,
-  meetingLeave,
-  meetingsView,
   applyConfig,
   applyConfigToDisk,
   buildConfigView,
   listChats,
   loadProfileState,
+  meetingJoin,
+  meetingLeave,
+  meetingPreflight,
+  meetingsView,
   mutateAccess,
   userAuthStatus,
   userChatsView,
@@ -23,8 +25,7 @@ import {
   userLoginStart,
 } from './api';
 import { activateProfile, listBots, listProfiles } from './fleet';
-import { onboardCreate, onboardState, onboardValidate } from './onboard';
-import { finishQrRegistration, qrStatus, startQrRegistration } from './qr-register';
+import consoleHtml from './generated/index.html';
 import {
   checkToken,
   HttpError,
@@ -33,7 +34,8 @@ import {
   sendHtml,
   sendJson,
 } from './http';
-import type { Controls } from '../commands';
+import { onboardCreate, onboardState, onboardValidate } from './onboard';
+import { finishQrRegistration, qrStatus, startQrRegistration } from './qr-register';
 import type { UiServerDeps, UiServerHandle } from './types';
 
 const DEFAULT_HOST = '127.0.0.1';

@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { isCreator, type RuntimeControls } from '@/policy/access';
 import {
+  type AppInfoSource,
   createOwnerRefreshController,
   refreshOwnerControls,
-  type AppInfoSource,
-} from '../../../src/policy/owner';
-import { isCreator, type RuntimeControls } from '../../../src/policy/access';
+} from '@/policy/owner';
 
 describe('owner refresh', () => {
   afterEach(() => {

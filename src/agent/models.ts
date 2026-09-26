@@ -1,4 +1,4 @@
-import type { AgentKind } from '../config/profile-schema';
+import type { AgentKind } from '@/config/profile-schema';
 
 /** Legacy value kept for existing config files; new forms use an empty input. */
 export const DEFAULT_MODEL = 'default';

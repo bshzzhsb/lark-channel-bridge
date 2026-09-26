@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest';
+
 import { join } from 'node:path';
-import { existingRootTopicScope, policyThreadId, rootTopicScope } from '../../../src/bot/topic-scope';
-import { SessionStore } from '../../../src/session/store';
+
+import { existingRootTopicScope, policyThreadId, rootTopicScope } from '@/bot/topic-scope';
+import { SessionStore } from '@/session/store';
+
 import { createTmpProfile, type TmpProfile } from '../../helpers/tmp-profile';
 
 const temp: TmpProfile[] = [];

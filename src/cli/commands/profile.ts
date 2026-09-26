@@ -1,12 +1,14 @@
 import { existsSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
-import { resolveAppPaths } from '../../config/app-paths';
-import { paths } from '../../config/paths';
+
+import { resolveAppPaths } from '@/config/app-paths';
+import { paths } from '@/config/paths';
+import type { RootConfig } from '@/config/profile-schema';
 import {
-  loadRootConfig,
   agentKindFromString,
   formatRootConfig,
   hasPermissionDefaultsMigration,
+  loadRootConfig,
   markPermissionDefaultsMigration,
   readActiveProfile,
   removeProfile,
@@ -14,14 +16,13 @@ import {
   saveRootConfig,
   withConfigFileLock,
   writeActiveProfile,
-} from '../../config/profile-store';
-import type { RootConfig } from '../../config/profile-schema';
-import { resolveAppSecret } from '../../config/secret-resolver';
-import { writeFileAtomic } from '../../platform/atomic-write';
-import { acquireProfileRuntimeLock, checkRuntimeLock } from '../../runtime/locks';
-import { readAndPrune } from '../../runtime/registry';
-import { listAllProfiles } from '../../runtime/profile-discovery';
-import { resolveProfileRuntime } from '../../runtime/profile-runtime';
+} from '@/config/profile-store';
+import { resolveAppSecret } from '@/config/secret-resolver';
+import { writeFileAtomic } from '@/platform/atomic-write';
+import { acquireProfileRuntimeLock, checkRuntimeLock } from '@/runtime/locks';
+import { listAllProfiles } from '@/runtime/profile-discovery';
+import { resolveProfileRuntime } from '@/runtime/profile-runtime';
+import { readAndPrune } from '@/runtime/registry';
 
 export interface ProfileCommandOptions {
   rootDir?: string;

@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
+
 import {
   BRIDGE_SYSTEM_PROMPT,
   buildBridgeSystemPrompt,
   prefixBridgeSystemPrompt,
-} from '../../../src/agent/bridge-system-prompt';
+} from '@/agent/bridge-system-prompt';
 
 describe('bridge system prompt bot collaboration rules', () => {
   it('states that bots only receive messages via a real structured mention', () => {

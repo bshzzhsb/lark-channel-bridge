@@ -1,29 +1,32 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { resolveAppPaths } from '../../../src/config/app-paths';
-import { clearKeystoreDerivedKeyCache, setSecret } from '../../../src/config/keystore';
-import {
-  createDefaultProfileConfig,
-  type AgentKind,
-  type RootConfig,
-} from '../../../src/config/profile-schema';
-import { secretKeyForApp } from '../../../src/config/schema';
+
 import {
   runProfileCreate,
   runProfileExport,
   runProfileRemove,
-} from '../../../src/cli/commands/profile';
-import type { ProcessEntry } from '../../../src/runtime/registry';
-import { withProfileAndAppLocks } from '../../../src/runtime/locks';
+} from '@/cli/commands/profile';
+import { resolveAppPaths } from '@/config/app-paths';
+import { clearKeystoreDerivedKeyCache, setSecret } from '@/config/keystore';
+import {
+  type AgentKind,
+  createDefaultProfileConfig,
+  type RootConfig,
+} from '@/config/profile-schema';
+import { secretKeyForApp } from '@/config/schema';
+import { withProfileAndAppLocks } from '@/runtime/locks';
+import type { ProcessEntry } from '@/runtime/registry';
+
 import { writeVersionExecutable } from '../../helpers/fake-executable';
 
 const auth = vi.hoisted(() => ({
   validateAppCredentials: vi.fn(async () => ({ ok: true, botName: 'Recreated Bot' })),
 }));
 
-vi.mock('../../../src/utils/feishu-auth', () => ({
+vi.mock('@/utils/feishu-auth', () => ({
   validateAppCredentials: auth.validateAppCredentials,
 }));
 

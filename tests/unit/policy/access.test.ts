@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+
+import { createDefaultProfileConfig, type ProfileConfig } from '@/config/profile-schema';
+import type { AppConfig } from '@/config/schema';
 import {
   accessPolicyDigest,
   canRunAdminCommand,
@@ -7,9 +10,7 @@ import {
   isCreator,
   requireMentionForChat,
   type RuntimeControls,
-} from '../../../src/policy/access';
-import { createDefaultProfileConfig, type ProfileConfig } from '../../../src/config/profile-schema';
-import type { AppConfig } from '../../../src/config/schema';
+} from '@/policy/access';
 
 const ownerControls: RuntimeControls = {
   botOwnerId: 'ou_owner',

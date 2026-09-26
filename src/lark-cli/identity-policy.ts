@@ -1,6 +1,6 @@
-import { buildLarkChannelEnv, type LarkChannelEnvContext } from '../agent/lark-channel-env';
-import { mergeProcessEnv, spawnProcess } from '../platform/spawn';
-import type { LarkCliIdentityPreset } from '../config/profile-schema';
+import { buildLarkChannelEnv, type LarkChannelEnvContext } from '@/agent/lark-channel-env';
+import type { LarkCliIdentityPreset } from '@/config/profile-schema';
+import { mergeProcessEnv, spawnProcess } from '@/platform/spawn';
 
 const POLICY_TIMEOUT_MS = 30_000;
 const USER_OPEN_ID_KEYS = ['userOpenId', 'openId', 'user_open_id', 'open_id'];

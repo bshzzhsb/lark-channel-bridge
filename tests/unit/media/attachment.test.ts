@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
+
 import {
+  type AttachmentCandidate,
   normalizeAttachments,
   safeExtensionForMime,
-  type AttachmentCandidate,
-} from '../../../src/media/attachment.js';
+} from '@/media/attachment.js';
 
 describe('attachment policy normalization', () => {
   it('accepts allowed images and ordinary files with hash paths', () => {

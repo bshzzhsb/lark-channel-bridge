@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
-import { consumeCotEvents, CotClient, CotPublisher, cotBriefToolTitle, finalAnswerOnlyState } from '../../../src/bot/cot/index.js';
-import type { AgentEvent } from '../../../src/agent/types.js';
-import type { RunState } from '../../../src/card/run-state.js';
+import { describe, expect, it, vi } from 'vitest';
+
+import type { AgentEvent } from '@/agent/types.js';
+import { consumeCotEvents, cotBriefToolTitle, CotClient, CotPublisher, finalAnswerOnlyState } from '@/bot/cot/index.js';
+import type { RunState } from '@/card/run-state.js';
 
 describe('COT event mapping', () => {
   it('publishes assistant progress text and brief tool summaries', async () => {
@@ -173,7 +174,30 @@ describe('COT event mapping', () => {
 
     expect(publisher.disabled).toBe(true);
     expect(publisher.degradedReason).toBe('field validation failed');
-    expect(client.completed).toEqual([]);
+    expect(client.completed).toEqual(['done']);
+  });
+
+  it('retries completing the existing bubble after a transient network failure', async () => {
+    const client = new FakeCotClient();
+    const complete = vi.spyOn(client, 'complete').mockRejectedValueOnce(new TypeError('fetch failed'));
+    const publisher = new CotPublisher({ client, chatId: 'oc_chat', originMessageId: 'om_origin', inputPreview: 'run' });
+    await publisher.start({ runId: 'run-retry', scope: 'oc_chat' });
+    await consumeCotEvents(iterate([{ type: 'done', terminationReason: 'normal' }]), publisher, { detail: 'brief' });
+    await publisher.finish('done');
+    expect(complete).toHaveBeenCalledTimes(2);
+    expect(complete.mock.calls[0]).toEqual(complete.mock.calls[1]);
+    expect(client.completed).toEqual(['done']);
+    expect(client.createCalls).toHaveLength(1);
+  });
+
+  it('records a completion failure without retrying a permission error', async () => {
+    const client = new FakeCotClient();
+    const complete = vi.spyOn(client, 'complete').mockRejectedValue(new Error('COT HTTP 403'));
+    const publisher = new CotPublisher({ client, chatId: 'oc_chat', originMessageId: 'om_origin', inputPreview: 'run' });
+    await publisher.start({ runId: 'run-denied', scope: 'oc_chat' });
+    await consumeCotEvents(iterate([{ type: 'done', terminationReason: 'normal' }]), publisher, { detail: 'brief' });
+    expect(complete).toHaveBeenCalledTimes(1);
+    expect(publisher.degradedReason).toBe('COT HTTP 403');
   });
 });
 

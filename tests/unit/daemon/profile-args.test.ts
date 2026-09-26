@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildPlist } from '../../../src/daemon/launchd';
+
+import { buildPlist } from '@/daemon/launchd';
 import {
   daemonStderrPath,
   daemonStdoutPath,
@@ -7,9 +8,9 @@ import {
   serviceProfileId,
   systemdUnitName,
   windowsTaskName,
-} from '../../../src/daemon/paths';
-import { buildLauncherCmd } from '../../../src/daemon/schtasks';
-import { buildUnit } from '../../../src/daemon/systemd';
+} from '@/daemon/paths';
+import { buildLauncherCmd } from '@/daemon/schtasks';
+import { buildUnit } from '@/daemon/systemd';
 
 describe('profile-scoped daemon paths and arguments', () => {
   it('sanitizes service ids and gives each profile distinct service names and logs', () => {

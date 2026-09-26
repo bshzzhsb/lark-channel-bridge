@@ -1,11 +1,14 @@
+import * as lockfile from 'proper-lockfile';
+
 import { chmod, mkdir, readFile, rename, rm, rmdir, stat, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import * as lockfile from 'proper-lockfile';
-import { writeFileAtomic } from '../platform/atomic-write';
+
+import { writeFileAtomic } from '@/platform/atomic-write';
+
 import { resolveAppPaths } from './app-paths';
 import {
-  normalizeProfileConfig,
   type AgentKind,
+  normalizeProfileConfig,
   type ProfileConfig,
   type RootConfig,
 } from './profile-schema';

@@ -1,8 +1,10 @@
+import * as lockfile from 'proper-lockfile';
+
 import { chmod, mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import * as lockfile from 'proper-lockfile';
-import type { AppPaths } from '../config/app-paths';
-import type { AgentKind } from '../config/profile-schema';
+
+import type { AppPaths } from '@/config/app-paths';
+import type { AgentKind } from '@/config/profile-schema';
 
 export type RuntimeLockKind = 'profile' | 'app';
 

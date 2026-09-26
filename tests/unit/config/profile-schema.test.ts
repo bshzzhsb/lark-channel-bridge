@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
+
 import {
   accessToClaudePermissionMode,
   clampAccess,
-} from '../../../src/config/permissions';
+} from '@/config/permissions';
 import {
   createDefaultProfileConfig,
   effectiveLarkCliIdentity,
   normalizeProfileConfig,
-} from '../../../src/config/profile-schema';
+} from '@/config/profile-schema';
 
 const app = {
   id: 'cli_test',

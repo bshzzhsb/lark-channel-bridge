@@ -1,5 +1,6 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+
 import { resolveAppPaths } from './app-paths';
 
 const appPaths = resolveAppPaths();

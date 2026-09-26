@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
+
 import {
   DEFAULT_MODEL,
   isDefaultModel,
   modelLabel,
   normalizeModelSelection,
   resolveModelArg,
-} from '../../../src/agent/models.js';
+} from '@/agent/models.js';
 
 describe('model selection', () => {
   it('treats unset and the default sentinel as "use agent default"', () => {

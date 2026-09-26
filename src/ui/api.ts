@@ -1,7 +1,40 @@
 import type { LarkChannel } from '@larksuite/channel';
-import { fetchKnownChats } from '../bot/lark-info';
+
+import { resolveModelArg } from '@/agent/models';
+import { fetchKnownChats } from '@/bot/lark-info';
+import { resolveAppPaths } from '@/config/app-paths';
+import {
+  applyProfileLarkCliIdentity,
+  type MutableProfileState,
+  saveAccessConfig,
+  savePreferencesConfig,
+} from '@/config/config-ops';
+import {
+  effectiveLarkCliIdentity,
+  type LarkCliIdentityPreset,
+  type MeetingConfig,
+  type ProfileAccess,
+  type ProfileMode,
+} from '@/config/profile-schema';
+import { loadRootConfig, runtimeProfileConfig } from '@/config/profile-store';
+import {
+  type AppPreferences,
+  type CotMessagesMode,
+  getCotMessages,
+  getMaxConcurrentRuns,
+  getMessageReplyMode,
+  getReplyPlacement,
+  getRequireMentionInGroup,
+  getRunIdleTimeoutMs,
+  getShowToolCalls,
+  isReplyPlacement,
+  type MessageReplyMode,
+  type ReplyPlacement,
+} from '@/config/schema';
+import { log } from '@/core/logger';
 import {
   ADD_BOT_SCOPES,
+  type AddBotResult,
   addBotToChat,
   completeDeviceLogin,
   getUserAuthStatus,
@@ -9,43 +42,12 @@ import {
   listUserChats,
   searchUserChats,
   startDeviceLogin,
-  type AddBotResult,
-} from '../lark-cli/user-im';
-import { isMeetingNo } from '../meeting/api';
-import { checkMeetingPreflight, type MeetingPreflight } from '../meeting/preflight';
-import { describeMeetingError, type MeetingManager, type MeetingPushHealth } from '../meeting/manager';
-import type { MeetingSessionStatus } from '../meeting/session';
-import { resolveAppPaths } from '../config/app-paths';
-import { loadRootConfig, runtimeProfileConfig } from '../config/profile-store';
-import {
-  applyProfileLarkCliIdentity,
-  saveAccessConfig,
-  savePreferencesConfig,
-  type MutableProfileState,
-} from '../config/config-ops';
-import {
-  getCotMessages,
-  getMaxConcurrentRuns,
-  getMessageReplyMode,
-  getReplyPlacement,
-  isReplyPlacement,
-  getRequireMentionInGroup,
-  getRunIdleTimeoutMs,
-  getShowToolCalls,
-  type AppPreferences,
-  type CotMessagesMode,
-  type MessageReplyMode,
-  type ReplyPlacement,
-} from '../config/schema';
-import {
-  effectiveLarkCliIdentity,
-  type MeetingConfig,
-  type LarkCliIdentityPreset,
-  type ProfileAccess,
-  type ProfileMode,
-} from '../config/profile-schema';
-import { resolveModelArg } from '../agent/models';
-import { log } from '../core/logger';
+} from '@/lark-cli/user-im';
+import { isMeetingNo } from '@/meeting/api';
+import { describeMeetingError, type MeetingManager, type MeetingPushHealth } from '@/meeting/manager';
+import { checkMeetingPreflight, type MeetingPreflight } from '@/meeting/preflight';
+import type { MeetingSessionStatus } from '@/meeting/session';
+
 import { HttpError } from './http';
 import type { UiRuntime } from './types';
 

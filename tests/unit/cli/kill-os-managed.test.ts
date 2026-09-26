@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ServiceAdapter } from '../../../src/daemon/service-adapter';
-import type { ProcessEntry } from '../../../src/runtime/registry';
+
+import type { ServiceAdapter } from '@/daemon/service-adapter';
+import type { ProcessEntry } from '@/runtime/registry';
 
 const mocks = vi.hoisted(() => ({
   resolveTarget: vi.fn(),
@@ -9,21 +10,21 @@ const mocks = vi.hoisted(() => ({
   getServiceAdapter: vi.fn(),
 }));
 
-vi.mock('../../../src/runtime/registry', () => ({
+vi.mock('@/runtime/registry', () => ({
   resolveTarget: mocks.resolveTarget,
   readAndPrune: mocks.readAndPrune,
   isAlive: mocks.isAlive,
 }));
 
-vi.mock('../../../src/daemon/service-adapter', () => ({
+vi.mock('@/daemon/service-adapter', () => ({
   getServiceAdapter: mocks.getServiceAdapter,
 }));
 
-vi.mock('../../../src/daemon/paths', () => ({
+vi.mock('@/daemon/paths', () => ({
   SUPERVISOR_SERVICE_ID: 'supervisor',
 }));
 
-const { runKillCli } = await import('../../../src/cli/commands/ps');
+const { runKillCli } = await import('@/cli/commands/ps');
 
 describe('kill on OS-managed processes', () => {
   beforeEach(() => {

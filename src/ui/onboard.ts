@@ -1,6 +1,8 @@
-import { detectInstalledAgents } from '../cli/agent-detection';
-import { resolveAppPaths } from '../config/app-paths';
-import { setSecret } from '../config/keystore';
+import { detectInstalledAgents } from '@/cli/agent-detection';
+import { createBootstrapProfileConfig } from '@/cli/profile-bootstrap';
+import { resolveAppPaths } from '@/config/app-paths';
+import { setSecret } from '@/config/keystore';
+import type { AgentKind } from '@/config/profile-schema';
 import {
   createRootConfig,
   loadRootConfig,
@@ -8,12 +10,11 @@ import {
   saveRootConfig,
   withConfigFileLock,
   writeActiveProfile,
-} from '../config/profile-store';
-import type { AgentKind } from '../config/profile-schema';
-import { secretKeyForApp, type AppConfig, type TenantBrand } from '../config/schema';
-import { buildEncryptedAccountConfig } from '../config/store';
-import { createBootstrapProfileConfig } from '../cli/profile-bootstrap';
-import { validateAppCredentials } from '../utils/feishu-auth';
+} from '@/config/profile-store';
+import { type AppConfig, secretKeyForApp, type TenantBrand } from '@/config/schema';
+import { buildEncryptedAccountConfig } from '@/config/store';
+import { validateAppCredentials } from '@/utils/feishu-auth';
+
 import { HttpError } from './http';
 
 export interface OnboardState {

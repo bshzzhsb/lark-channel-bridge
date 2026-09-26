@@ -1,13 +1,14 @@
-import type { AgentCapability } from '../agent/capability';
+import type { AgentCapability } from '@/agent/capability';
 import {
+  type AccessMode,
   accessToClaudePermissionMode,
   accessToCodexSandbox,
   clampAccess,
-  type AccessMode,
   type ClaudePermissionMode,
   type CodexSandboxMode,
-} from '../config/permissions';
-import type { ProfileConfig } from '../config/profile-schema';
+} from '@/config/permissions';
+import type { ProfileConfig } from '@/config/profile-schema';
+
 import type { AccessDecision } from './access';
 import {
   accessPolicyDigest,
