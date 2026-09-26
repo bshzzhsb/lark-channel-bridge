@@ -211,7 +211,9 @@ describe('topic message quote handling', () => {
     );
     await waitFor(() => h.agent.runOptions.length === 1);
 
-    expect(h.channel.fetchRawMessage).toHaveBeenCalledWith('om_topic_start');
+    expect(h.channel.fetchRawMessage).toHaveBeenCalledWith(
+      'om_topic_start', expect.objectContaining({ cardContentType: 'user_card_content' }),
+    );
     const prompt = h.agent.runOptions[0]?.prompt ?? '';
     expect(prompt).toContain('"threadId":"omt_backfilled"');
 
@@ -243,12 +245,14 @@ describe('topic message quote handling', () => {
     );
     await waitFor(() => h.agent.runOptions.length === 1);
 
-    expect(h.channel.fetchRawMessage).toHaveBeenCalledWith('om_no_thread');
+    expect(h.channel.fetchRawMessage).toHaveBeenCalledWith(
+      'om_no_thread', expect.objectContaining({ cardContentType: 'user_card_content' }),
+    );
     await waitFor(() => h.channel.streams.length === 1);
     expect(h.channel.streams[0]?.options).toMatchObject({ replyInThread: true });
   });
 
-  it('resumes a bot-created topic after a restart without mixing other topics', async () => {
+  it('starts a session in each bot-created reply topic and resumes it there', async () => {
     const h = await createHarness({
       chatMode: 'group',
       agentEvents: [
@@ -262,7 +266,8 @@ describe('topic message quote handling', () => {
     await h.channel.handlers.message?.(message({
       messageId: 'om_first', rootId: 'om_first', parentId: 'om_first', content: '@Bridge 第一问',
     }));
-    await waitFor(() => Boolean(h.sessions.getRaw('oc_topic_chat:root:om_first')?.sessionId));
+    await waitFor(() => h.sessions.getRaw('oc_topic_chat:root:om_first')?.sessionId === 'sess-first');
+    expect(h.sessions.getRaw('oc_topic_chat')?.sessionId).toBeUndefined();
     await waitFor(() => h.channel.streams.length === 1);
     expect(h.channel.streams[0]?.options).toMatchObject({ replyTo: 'om_first', replyInThread: true });
     expect(h.agent.runOptions[0]?.cwd).toBe(await realpath(h.tmp.workspace));
@@ -275,7 +280,9 @@ describe('topic message quote handling', () => {
     const channel = createFakeLarkChannel({ chatMode: 'group' });
     const agent = new FakeAgentAdapter({ events: [
       [{ type: 'text', delta: '追问回答' }, { type: 'done', terminationReason: 'normal' }],
+      [{ type: 'text', delta: '继续追问' }, { type: 'done', terminationReason: 'normal' }],
       [{ type: 'text', delta: '其他话题' }, { type: 'done', terminationReason: 'normal' }],
+      [{ type: 'text', delta: '主对话继续' }, { type: 'done', terminationReason: 'normal' }],
     ] });
     sdkMock.channel = channel;
     const bridge = await startChannel({
@@ -292,13 +299,28 @@ describe('topic message quote handling', () => {
     expect(agent.runOptions[0]?.cwd).toBe(await realpath(h.tmp.workspace));
     await waitFor(() => channel.streams.length === 1);
     expect(channel.streams[0]?.options).toMatchObject({ replyInThread: true });
+    expect(sessions.getRaw('oc_topic_chat:root:om_first')?.sessionId).toBe('sess-first');
+
+    await channel.handlers.message?.(message({
+      messageId: 'om_followup_2', rootId: 'om_first', parentId: 'om_followup',
+      content: '@Bridge 再继续',
+    }));
+    await waitFor(() => agent.runOptions.length === 2);
+    expect(agent.runOptions[1]?.sessionId).toBe('sess-first');
 
     await channel.handlers.message?.(message({
       messageId: 'om_other', rootId: 'om_other_root', parentId: 'om_other_root',
       threadId: 'omt_other', content: '@Bridge 新话题',
     }));
-    await waitFor(() => agent.runOptions.length === 2);
-    expect(agent.runOptions[1]?.sessionId).toBeUndefined();
+    await waitFor(() => agent.runOptions.length === 3);
+    expect(agent.runOptions[2]?.sessionId).toBeUndefined();
+
+    await channel.handlers.message?.(message({
+      messageId: 'om_main_2', rootId: 'om_main_2', parentId: 'om_main_2',
+      content: '@Bridge 主对话继续',
+    }));
+    await waitFor(() => agent.runOptions.length === 4);
+    expect(agent.runOptions[3]?.sessionId).toBeUndefined();
   });
 
   it('pulls in the topic upstream messages when first engaged in a topic', async () => {
@@ -339,7 +361,9 @@ describe('topic message quote handling', () => {
       }),
     );
     await waitFor(() => h.agent.runOptions.length === 1);
-    expect(h.channel.fetchRawMessage).toHaveBeenCalledWith('om_at_in_topic');
+    expect(h.channel.fetchRawMessage).toHaveBeenCalledWith(
+      'om_at_in_topic', expect.objectContaining({ cardContentType: 'user_card_content' }),
+    );
     expect(h.channel.fetchRawMessage).toHaveBeenCalledWith(
       'om_topic_root',
       expect.objectContaining({ cardContentType: 'user_card_content' }),

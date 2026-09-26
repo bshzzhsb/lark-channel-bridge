@@ -111,6 +111,7 @@ export async function handleCardAction(deps: CardDispatchDeps): Promise<void> {
       agent: deps.agent,
       processPool: deps.processPool,
       runExecutor: deps.runExecutor,
+      clearPending: (targetScope) => { deps.pending.cancel(targetScope); },
       controls: deps.controls,
       formValue,
       fromCardAction: true,

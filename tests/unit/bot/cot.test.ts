@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { consumeCotEvents, CotClient, CotPublisher, cotBriefToolTitle, finalAnswerOnlyState } from '../../../src/bot/cot.js';
+import { consumeCotEvents, CotClient, CotPublisher, cotBriefToolTitle, finalAnswerOnlyState } from '../../../src/bot/cot/index.js';
 import type { AgentEvent } from '../../../src/agent/types.js';
 import type { RunState } from '../../../src/card/run-state.js';
 
@@ -10,11 +10,9 @@ describe('COT event mapping', () => {
       client,
       chatId: 'oc_chat',
       originMessageId: 'om_origin',
-      runId: 'run-1',
-      scope: 'oc_chat:omt_topic',
       inputPreview: 'draw a bear',
     });
-    await publisher.start();
+    await publisher.start({ runId: 'run-1', scope: 'oc_chat:omt_topic' });
 
     await consumeCotEvents(iterate([
       { type: 'text', delta: '我会先生成图片。' },
@@ -48,11 +46,9 @@ describe('COT event mapping', () => {
       client,
       chatId: 'oc_chat',
       originMessageId: 'om_origin',
-      runId: 'run-2',
-      scope: 'oc_chat',
       inputPreview: 'run',
     });
-    await publisher.start();
+    await publisher.start({ runId: 'run-2', scope: 'oc_chat' });
 
     await consumeCotEvents(iterate([
       { type: 'tool_use', id: 'tool-1', name: 'command_execution', input: { command: 'pwd' } },
@@ -98,11 +94,9 @@ describe('COT event mapping', () => {
       // In a topic the trigger message is itself in-topic, so the bubble
       // inherits its thread. No thread_id is passed — message_cot rejects it.
       originMessageId: 'om_in_topic',
-      runId: 'run-topic',
-      scope: 'oc_chat:omt_topic',
       inputPreview: 'in a topic',
     });
-    await publisher.start();
+    await publisher.start({ runId: 'run-topic', scope: 'oc_chat:omt_topic' });
 
     // Exactly one create — never a second (that would render a duplicate).
     expect(client.createCalls).toEqual([
@@ -118,11 +112,9 @@ describe('COT event mapping', () => {
       client,
       chatId: 'oc_chat',
       originMessageId: 'om_origin',
-      runId: 'run-rejected',
-      scope: 'oc_chat:omt_topic',
       inputPreview: 'in a topic',
     });
-    await publisher.start();
+    await publisher.start({ runId: 'run-rejected', scope: 'oc_chat:omt_topic' });
 
     expect(client.createCalls).toHaveLength(1);
     expect(publisher.disabled).toBe(true);
@@ -137,11 +129,9 @@ describe('COT event mapping', () => {
       client,
       chatId: 'oc_chat',
       originMessageId: 'om_origin',
-      runId: 'run-missing-ids',
-      scope: 'oc_chat',
       inputPreview: 'run',
     });
-    await publisher.start();
+    await publisher.start({ runId: 'run-missing-ids', scope: 'oc_chat' });
 
     expect(client.createCalls).toHaveLength(1);
     expect(publisher.disabled).toBe(true);
@@ -172,11 +162,9 @@ describe('COT event mapping', () => {
       client,
       chatId: 'oc_chat',
       originMessageId: 'om_origin',
-      runId: 'run-degraded',
-      scope: 'oc_chat',
       inputPreview: 'run',
     });
-    await publisher.start();
+    await publisher.start({ runId: 'run-degraded', scope: 'oc_chat' });
 
     await consumeCotEvents(iterate([
       { type: 'text', delta: 'working' },

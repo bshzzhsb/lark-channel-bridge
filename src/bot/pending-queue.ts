@@ -16,13 +16,13 @@ export type FlushHandler = (scope: string, batch: NormalizedMessage[]) => void;
  *
  * `block(scope)` pauses the debounce timer while an agent run is active on
  * that scope — pushed messages still accumulate but no flush fires until
- * `unblock(scope)`, which arms a fresh quiet window.
+ * every matching `unblock(scope)` has run, which arms a fresh quiet window.
  *
  * Commands should bypass this queue — they're cheap and should be responsive.
  */
 export class PendingQueue {
   private readonly map = new Map<string, PendingEntry>();
-  private readonly blocked = new Set<string>();
+  private readonly blocked = new Map<string, number>();
   private readonly delayMs: number;
   private readonly onFlush: FlushHandler;
 
@@ -64,8 +64,9 @@ export class PendingQueue {
 
   /** Pause the debounce timer; pushed messages keep accumulating. */
   block(scope: string): void {
-    if (this.blocked.has(scope)) return;
-    this.blocked.add(scope);
+    const depth = this.blocked.get(scope) ?? 0;
+    this.blocked.set(scope, depth + 1);
+    if (depth > 0) return;
     const entry = this.map.get(scope);
     if (entry?.timer) {
       clearTimeout(entry.timer);
@@ -76,7 +77,12 @@ export class PendingQueue {
 
   /** Resume the debounce timer; arms a fresh quiet window if anything queued. */
   unblock(scope: string): void {
-    if (!this.blocked.has(scope)) return;
+    const depth = this.blocked.get(scope);
+    if (!depth) return;
+    if (depth > 1) {
+      this.blocked.set(scope, depth - 1);
+      return;
+    }
     this.blocked.delete(scope);
     const entry = this.map.get(scope);
     log.info('queue', 'unblocked', { scope, queued: entry?.messages.length ?? 0 });
