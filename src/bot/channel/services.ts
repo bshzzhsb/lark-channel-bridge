@@ -29,13 +29,18 @@ interface ChannelServicesDeps {
 export function createChannelServices(deps: ChannelServicesDeps) {
   const { channel, cfg, controls } = deps;
 
-  const meetingManager = attachMeetings(deps);
+  const meetingManager = createMeetings(deps);
 
   const ownerRefresh = createOwnerRefreshController({ controls, source: channel, appId: cfg.accounts.app.id });
   let knownChatsRefresh: { stop(): void; } | undefined;
   let keepalive: { stop(): void; } | undefined;
 
   return {
+    bind() {
+      meetingManager?.attachPush();
+      if (meetingManager) controls.meeting = meetingManager;
+    },
+
     async start() {
       await ownerRefresh.start();
       knownChatsRefresh = startKnownChatsRefreshTimer(channel, controls);
@@ -54,12 +59,12 @@ export function createChannelServices(deps: ChannelServicesDeps) {
       keepalive?.stop();
       // /reconnect stops timers, but does not leave ongoing meetings.
       meetingManager?.dispose();
-      controls.meeting = undefined;
+      if (controls.meeting === meetingManager) controls.meeting = undefined;
     },
   };
 }
 
-function attachMeetings(deps: ChannelServicesDeps) {
+function createMeetings(deps: ChannelServicesDeps) {
   const { channel, controls, executor, activeRuns, sessions, sessionCatalog, workspaces } = deps;
   const agentDeps = { channel, controls, executor, activeRuns, sessions, sessionCatalog, workspaces };
   const config = () => controls.profileConfig.meeting;
@@ -74,9 +79,6 @@ function attachMeetings(deps: ChannelServicesDeps) {
     onSession: (session) => attachMeetingAgent({ ...agentDeps, session }),
   });
 
-  manager.attachPush();
-  controls.meeting = manager;
-
   return manager;
 }
 
@@ -85,10 +87,11 @@ function startKnownChatsRefreshTimer(
   controls: Controls,
 ): { stop(): void; } {
   const intervalMs = 30 * 60 * 1000;
+  let stopped = false;
   const refresh = async (): Promise<void> => {
     const chats = await fetchKnownChats(channel);
 
-    if (chats.length > 0) {
+    if (!stopped && chats.length > 0) {
       controls.knownChats = chats;
     }
   };
@@ -99,6 +102,7 @@ function startKnownChatsRefreshTimer(
 
   return {
     stop() {
+      stopped = true;
       clearInterval(timer);
     },
   };

@@ -16,9 +16,10 @@ import { log } from '@/core/logger';
 export async function addWorkingReaction(
   channel: LarkChannel,
   messageId: string,
+  emojiType = 'Typing',
 ): Promise<string | undefined> {
   try {
-    const id = await channel.addReaction(messageId, 'Typing');
+    const id = await channel.addReaction(messageId, emojiType);
     if (id) log.info('reaction', 'added', { messageId, reactionId: id });
     return id;
   } catch (err) {
@@ -28,6 +29,25 @@ export async function addWorkingReaction(
     });
     return undefined;
   }
+}
+
+/** Start immediately; cleanup also handles an add response that arrives after COT creation. */
+export function startPendingReaction(
+  channel: LarkChannel,
+  messageId: string,
+  emojiType: string,
+): () => void {
+  const added = addWorkingReaction(channel, messageId, emojiType);
+  let removing = false;
+
+  return () => {
+    if (removing) return;
+
+    removing = true;
+    void added.then(async (reactionId) => {
+      if (reactionId) await removeReaction(channel, messageId, reactionId);
+    });
+  };
 }
 
 /** Remove a previously-added reaction. Tolerates errors silently — best

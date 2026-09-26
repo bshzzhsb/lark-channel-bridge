@@ -187,6 +187,8 @@ export interface AgentRunCotOptions {
   stepName?: string;
   inputPreview?: string;
   detail?: Exclude<CotMessagesMode, 'off'>;
+  /** Called once when the COT message has been created successfully. */
+  onCreated?: () => void;
 }
 
 export interface AgentRunRequest extends AgentRunOptions {

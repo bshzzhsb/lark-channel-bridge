@@ -103,6 +103,8 @@ export interface IntakeDeps {
   executor: RunExecutor;
   pool: ProcessPool;
   runAgent: (request: AgentRunRequest) => Promise<AgentRunResult>;
+  /** Connection lifecycle guard; optional for callers outside a live channel. */
+  isActive?: () => boolean;
 }
 
 export type LogThreadModeOverride = (input: {
@@ -121,17 +123,23 @@ export function createMessageIntake(deps: IntakeDeps): (msg: NormalizedMessage) 
   const handleCommand = createCommandIntake(deps);
 
   return async (msg) => {
+    if (deps.isActive?.() === false) return;
+
     const route = await resolveMessageRoute(deps, msg);
+
+    if (deps.isActive?.() === false) return;
 
     const access = await checkResponse(deps, route);
 
-    if (!access) return;
+    if (!access || deps.isActive?.() === false) return;
 
     if (await handleCommand(route, access)) {
       log.info('intake', 'command', { scope: route.scope });
 
       return;
     }
+
+    if (deps.isActive?.() === false) return;
 
     const size = deps.pending.push(route.scope, route.message);
 
