@@ -8,6 +8,7 @@ import { log } from '@/core/logger';
 import { canUseGroup } from '@/policy/access';
 
 import { type FeishuMessageItem, fetchFeishuMessageItems, normalizeItemToQuoted, type QuotedContext } from './quote';
+import { startPendingReaction } from './reaction';
 import { replyOptions } from './reply-placement';
 import { commandSessionCatalogIdentity } from './session-catalog-identity';
 import { rootTopicScope } from './topic-scope';
@@ -54,6 +55,8 @@ export async function handleOnboard(_args: string, ctx: CommandContext): Promise
     return;
   }
   if (!ctx.runAgent) throw new Error('shared agent runner is unavailable');
+  const clearPendingReaction = startPendingReaction(ctx.channel, ctx.msg.messageId, 'OnIt');
+
   const inTopic = ctx.scope !== ctx.msg.chatId || Boolean(ctx.msg.threadId);
   const analysisInThread = replyOptions(ctx.controls.cfg, ctx.msg, inTopic).replyInThread;
   const splitTask = !inTopic && analysisInThread;
@@ -81,7 +84,7 @@ export async function handleOnboard(_args: string, ctx: CommandContext): Promise
       persistSession: false,
       stage: 'onboard-analysis',
       sendOpts: { replyTo: ctx.msg.messageId, replyInThread: analysisInThread },
-      cot: { stepName: 'onboarding', inputPreview: '/onboard' },
+      cot: { stepName: 'onboarding', inputPreview: '/onboard', onCreated: clearPendingReaction },
     });
     if (analysisRun.error) throw new Error(analysisRun.error);
     const analysis = parseAnalysis(analysisRun.finalText ?? '');
@@ -109,6 +112,7 @@ export async function handleOnboard(_args: string, ctx: CommandContext): Promise
       mode: runMode,
       prompt: taskPrompt,
       stage: 'onboard-task',
+      cot: { onCreated: clearPendingReaction },
       completionMentions: completionRecipients(ctx, snapshot, analysis),
       sessionAnchor: {
         title,
@@ -128,6 +132,8 @@ export async function handleOnboard(_args: string, ctx: CommandContext): Promise
       replyTo: taskMessageIdForFailure ?? ctx.msg.messageId,
       replyInThread: analysisInThread,
     });
+  } finally {
+    clearPendingReaction();
   }
 }
 

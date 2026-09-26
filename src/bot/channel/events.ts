@@ -25,15 +25,21 @@ export function bindChannelEvents(deps: ChannelEventsDeps): void {
 
   channel.on({
     message: async (msg) => {
+      if (deps.isActive?.() === false) return;
+
       await withTrace({ chatId: msg.chatId, msgId: msg.messageId }, () => intake(msg))
         .catch((err) => log.fail('intake', err));
     },
     reject: (evt) => log.info('intake', 'reject', { chatId: evt.chatId, reason: evt.reason }),
     cardAction: async (evt) => {
+      if (deps.isActive?.() === false) return;
+
       await withTrace({ chatId: evt.chatId, msgId: evt.messageId }, () => handleCardAction({ ...cardDeps, evt }))
         .catch((err) => log.fail('cardAction', err));
     },
     comment: async (evt) => {
+      if (deps.isActive?.() === false) return;
+
       await withTrace({ chatId: 'comment' }, () => handleCommentMention({ ...commentDeps, evt }))
         .catch((err) => log.fail('comment', err));
     },

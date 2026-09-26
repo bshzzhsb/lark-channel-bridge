@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import type { AgentEvent } from '@/agent/types';
 import type { CotMessagesMode } from '@/config/schema';
+import { log } from '@/core/logger';
 
 import type { CotClient } from './client';
 import { consumeCotEvents } from './events';
@@ -17,6 +18,7 @@ interface RunCotContext {
 export class RunCot {
   private readonly publisher: CotPublisher;
   private suppressed = false;
+  private creationNotified = false;
 
   constructor(private readonly opts: {
     client: Pick<CotClient, 'create' | 'update' | 'complete'>;
@@ -28,6 +30,7 @@ export class RunCot {
     inputPreview: string;
     stepName?: string;
     detail?: CotMessagesMode;
+    onCreated?: () => void;
   }) {
     this.publisher = new CotPublisher(opts);
   }
@@ -50,7 +53,19 @@ export class RunCot {
       this.suppressed = true;
       return undefined;
     }
-    return this.publisher.reserveAnchor();
+    const ref = await this.publisher.reserveAnchor();
+
+    if (ref && !this.creationNotified) {
+      this.creationNotified = true;
+
+      try {
+        this.opts.onCreated?.();
+      } catch (err) {
+        log.warn('cot', 'creation-callback-failed', { err: String(err) });
+      }
+    }
+
+    return ref;
   }
 
   async start(context: RunCotContext): Promise<boolean> {

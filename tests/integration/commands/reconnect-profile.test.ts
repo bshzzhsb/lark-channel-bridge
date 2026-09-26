@@ -58,11 +58,11 @@ describe('/reconnect profile lifecycle', () => {
 
   it('guards direct bridge disconnects and IM commands with the current profile runtime context', async () => {
     const [source, intake] = await Promise.all([
-      readFile(new URL('../../../src/bot/channel/index.ts', import.meta.url), 'utf8'),
+      readFile(new URL('../../../src/bot/channel/connection.ts', import.meta.url), 'utf8'),
       readFile(new URL('../../../src/bot/im/intake.ts', import.meta.url), 'utf8'),
     ]);
     const disconnectBlock = source.slice(
-      source.indexOf('async function disconnectChannel('),
+      source.indexOf('private async stop()'),
     );
 
     expect(source).toContain("activeRuns.pauseNewRuns('bridge-disconnect')");

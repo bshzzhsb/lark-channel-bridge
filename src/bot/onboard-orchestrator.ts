@@ -62,6 +62,7 @@ export function createOnboardOrchestrator(deps: OnboardOrchestratorDeps):
       inputPreview: runCot?.inputPreview ?? request.prompt ?? request.message.content,
       stepName: runCot?.stepName,
       detail: runCot?.detail,
+      onCreated: runCot?.onCreated,
     });
 
     try {
