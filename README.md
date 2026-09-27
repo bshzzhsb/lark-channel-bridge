@@ -168,6 +168,8 @@ DMs do not require an @ mention. Groups and topic groups require `@bot` by defau
 
 Send `@bot /guard` in a group to enable guard, `@bot /guard off` to disable it, or `@bot /guard status` to check it. When someone @mentions you, the bot replies in the original message's thread, mentioning both you and the sender.
 
+When `/onboard` or a guard task lacks information, the bot completes what it can independently, then lists the missing information in its final reply with an @mention of the corresponding task assigner before each item. If the assigner cannot be identified, that item @mentions you directly (the `/onboard` requester or the guarded member for that task).
+
 ## Reply Display and COT
 
 `/config` controls three presentation settings:

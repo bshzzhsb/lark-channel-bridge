@@ -236,6 +236,8 @@ export class GuardManager {
         if (!started || !active.length) return false;
 
         instructions.push(`守护模式：你正在协助群成员 ${active.join('、')} 回应原消息发送者。请结合消息、引用和附件给出实质性答复；以 Bot 身份发言，不假称本人。最终答复由 bridge 发送并添加 @，无需另行发送聊天消息。`);
+        instructions.push(`上下文信息不足时，先结合现有资料和可用工具查找信息，完成信息足够、可以独立执行的部分；不要猜测关键事实。本轮执行结束时，在最终回复中汇报已完成内容，将受阻部分标为“待补充信息”，列出具体缺少的信息及其影响，并明确请原消息发送者 ${msg.senderId} 补充；无法确定派发者时，直接请该任务对应的被守护成员（${active.join('、')}）补充。不得将受阻任务描述为已完成。`);
+        instructions.push(`将所有信息补充请求集中在一个段落，标题独占一行，固定为“**待补充信息：**”，使用 Markdown 加粗。标题下每个待补充信息项独占一行，格式为“- [[at:OPEN_ID]]：需要补充的内容”。例如：\n**待补充信息：**\n- [[at:${msg.senderId}]]：请补充相识日期和城市。\n无法确定派发者时，用该任务对应被守护成员的标记（${active.map((id) => `[[at:${id}]]`).join(' ')}）。同一个人对应多项问题时，每项前都要写标记；不要在每项重复标题，不要仅写姓名或“原消息发送者”。bridge 会将标记转换为真实 @。`);
         return true;
       },
       shouldSendReply: (outcome) => !outcome.error && this.activeRecipients(task).length > 0,

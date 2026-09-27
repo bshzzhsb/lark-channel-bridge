@@ -217,6 +217,14 @@ describe('group guard', () => {
       scopeId: 'oc_group:root:om_question', sendOpts: { replyTo: 'om_question', replyInThread: true } });
     expect(h.runs[0]?.resolveCompletionMentions?.()).toEqual(['ou_me', 'ou_sender']);
     expect(h.runs[0]?.instructions?.[0]).toContain('守护模式');
+    const instructions = h.runs[0]!.instructions!.join('\n');
+    expect(instructions).toContain('完成信息足够、可以独立执行的部分');
+    expect(instructions).toContain('待补充信息');
+    expect(instructions).toContain('明确请原消息发送者 ou_sender 补充');
+    expect(instructions).toContain('被守护成员（ou_me）补充');
+    expect(instructions).toContain('不得将受阻任务描述为已完成');
+    expect(instructions).toContain('**待补充信息：**\n- [[at:ou_sender]]：请补充相识日期和城市。');
+    expect(instructions).toContain('被守护成员的标记（[[at:ou_me]]）');
     expect(h.addReaction).toHaveBeenCalledTimes(1);
     expect(h.addReaction).toHaveBeenCalledWith('om_question', 'OnIt');
     expect(h.removeReaction).toHaveBeenCalledTimes(1);
