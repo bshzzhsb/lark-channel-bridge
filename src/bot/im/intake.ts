@@ -3,6 +3,7 @@ import type { LarkChannel, NormalizedMessage } from '@larksuite/channel';
 import type { AgentAdapter } from '@/agent/types';
 import type { ActiveRuns } from '@/bot/active-runs';
 import type { ChatMode,ChatModeCache } from '@/bot/chat-mode-cache';
+import type { GuardManager } from '@/bot/guard';
 import type { PendingQueue } from '@/bot/pending-queue';
 import type { ProcessPool } from '@/bot/process-pool';
 import { replyOptions } from '@/bot/reply-placement';
@@ -90,6 +91,7 @@ function sendForwardFetchFailedHint(
 }
 
 export interface IntakeDeps {
+  guard?: GuardManager;
   channel: LarkChannel;
   agent: AgentAdapter;
   sessions: SessionStore;
@@ -125,6 +127,7 @@ export function createMessageIntake(deps: IntakeDeps): (msg: NormalizedMessage) 
   return async (msg) => {
     if (deps.isActive?.() === false) return;
 
+    deps.guard?.observe(msg);
     const route = await resolveMessageRoute(deps, msg);
 
     if (deps.isActive?.() === false) return;
@@ -133,13 +136,18 @@ export function createMessageIntake(deps: IntakeDeps): (msg: NormalizedMessage) 
 
     if (!access || deps.isActive?.() === false) return;
 
-    if (await handleCommand(route, access)) {
+    // A human-directed guard mention does not authorize a bridge slash command.
+    const commandAllowed = msg.chatType === 'p2p' || msg.mentionedBot
+      || !requireMentionForChat(deps.controls.profileConfig, deps.controls.cfg, msg.chatId);
+    if (commandAllowed && await handleCommand(route, access)) {
       log.info('intake', 'command', { scope: route.scope });
 
       return;
     }
 
     if (deps.isActive?.() === false) return;
+
+    if (deps.guard?.accept(route.message)) return;
 
     const size = deps.pending.push(route.scope, route.message);
 
@@ -191,7 +199,7 @@ async function resolveMessageRoute(deps: IntakeDeps, msg: NormalizedMessage): Pr
 }
 
 async function recoverMessageThread(
-  deps: Pick<IntakeDeps, 'channel' | 'controls'>, msg: NormalizedMessage,
+  deps: Pick<IntakeDeps, 'channel' | 'controls' | 'guard'>, msg: NormalizedMessage,
 ): Promise<NormalizedMessage> {
   const { channel, controls } = deps;
 
@@ -202,6 +210,7 @@ async function recoverMessageThread(
   let threadId = msg.threadId;
   let rootId = msg.rootId;
   const mayRespond = msg.chatType === 'p2p' || msg.mentionedBot
+    || Boolean(deps.guard?.matches(msg).length)
     || !requireMentionForChat(controls.profileConfig, controls.cfg, msg.chatId);
 
   if ((!threadId || !rootId) && mayRespond) {
@@ -270,7 +279,7 @@ async function checkResponse(deps: IntakeDeps, route: MessageRoute) {
   if (
     msg.chatType !== 'p2p' &&
     requireMentionForChat(controls.profileConfig, controls.cfg, msg.chatId) &&
-    !msg.mentionedBot
+    !msg.mentionedBot && !deps.guard?.matches(msg).length
   ) {
     log.info('intake', 'skip-no-mention', { scope, chatType: msg.chatType });
 
@@ -302,7 +311,7 @@ function createCommandIntake(deps: IntakeDeps) {
   const { channel, sessions, workspaces, agent, activeRuns, sessionCatalog,
     executor, runAgent, pool, controls, pending } = deps;
   const commandDeps = {
-    channel, sessions, workspaces, agent, activeRuns, sessionCatalog,
+    guard: deps.guard, channel, sessions, workspaces, agent, activeRuns, sessionCatalog,
     runExecutor: executor, runAgent, processPool: pool, controls,
     clearPending: (scope: string) => { pending.cancel(scope); },
   };

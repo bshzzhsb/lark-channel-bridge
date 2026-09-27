@@ -146,6 +146,7 @@ lark-channel-bridge profile export <name> --include-secrets --yes
 | `/resume` | 恢复同 agent、工作目录、权限模式兼容的历史会话 |
 | `/status` | 查看 profile、agent、工作目录、会话、lark-cli 身份和运行状态 |
 | `/onboard` | 在群里 @bot，分析群资料和近期消息，启动需要你处理的任务 |
+| `/guard [on|off|status]` | 在群里 @bot，开启、关闭或查看自己的守护模式 |
 | `/config` | 调整展示偏好、访问控制和 lark-cli 身份策略 |
 | `/invite user @某人` | 允许用户私聊使用 bot |
 | `/invite admin @某人` | 添加访问控制管理员 |
@@ -161,6 +162,11 @@ lark-channel-bridge profile export <name> --include-secrets --yes
 | `/help` | 帮助卡片 |
 
 私聊不需要 @。群和话题群默认必须 `@bot`；`@all` 会被忽略。支持的云文档评论里 @bot 就会触发回复。
+
+
+### 群聊守护模式
+
+在群里发送 `@bot /guard` 开启守护，`@bot /guard off` 关闭，`@bot /guard status` 查看状态。有人 @你时，Bot 在原消息的话题内自动回复，同时 @你和发送者。
 
 ## 回复展示与 COT
 

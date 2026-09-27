@@ -146,6 +146,7 @@ If a profile was created with the wrong agent kind, stop or unregister any match
 | `/resume` | Resume compatible history for the same agent, working directory, and permission mode |
 | `/status` | Show profile, agent, working directory, session, lark-cli identity, and run state |
 | `/onboard` | In a group, mention the bot to review recent context and handle your tasks |
+| `/guard [on|off|status]` | Mention the bot in a group to enable, disable, or check your guard mode |
 | `/config` | Adjust presentation preferences, access settings, and lark-cli identity policy |
 | `/invite user @name` | Allow a user to use the bot in DMs |
 | `/invite admin @name` | Add an access-control admin |
@@ -161,6 +162,11 @@ If a profile was created with the wrong agent kind, stop or unregister any match
 | `/help` | Help card |
 
 DMs do not require an @ mention. Groups and topic groups require `@bot` by default; `@all` is ignored. Cloud-doc comments in supported document types run when the bot is mentioned.
+
+
+### Group guard mode
+
+Send `@bot /guard` in a group to enable guard, `@bot /guard off` to disable it, or `@bot /guard status` to check it. When someone @mentions you, the bot replies in the original message's thread, mentioning both you and the sender.
 
 ## Reply Display and COT
 

@@ -35,6 +35,8 @@ export class RunCot {
     this.publisher = new CotPublisher(opts);
   }
 
+  get messageId(): string | undefined { return this.publisher.ref?.messageId; }
+
   get enabled(): boolean {
     return Boolean(this.publisher.ref)
       || (!this.suppressed && !this.publisher.disabled && this.opts.mode() !== 'off');
