@@ -1,5 +1,6 @@
 import type { LarkChannel, NormalizedMessage } from '@larksuite/channel';
 
+import type { AgentRunContextMessage } from '@/agent/prompt';
 import type { AgentRunRequest, AgentRunResult, CommandContext, Controls } from '@/commands';
 import { log } from '@/core/logger';
 import { canUseGroup } from '@/policy/access';
@@ -7,6 +8,7 @@ import type { SessionStore } from '@/session/store';
 import type { WorkspaceStore } from '@/workspace/store';
 
 import { hasGroupMsgScope } from './app-scope';
+import { GuardMessageContext, isGroupContextItem } from './guard-context';
 import { GuardStore } from './guard-store';
 import { type FeishuMessageItem, fetchFeishuMessageItems, normalizeHistoryMessage } from './quote';
 import { addWorkingReaction, startPendingReaction } from './reaction';
@@ -27,6 +29,7 @@ interface GuardTask {
   recipients: string[];
   cleanup: () => void;
   isActive?: () => boolean;
+  context?: GuardMessageContext;
 }
 
 export class GuardManager {
@@ -221,19 +224,31 @@ export class GuardManager {
     }
 
     const instructions: string[] = [];
+    const contextMessages: AgentRunContextMessage[] = [];
     let started = false;
     const result = await runAgent({
       message, scopeId: scope, mode: 'topic', stage: 'guard',
       sendOpts: { replyTo: msg.messageId, replyInThread: true },
       instructions,
+      contextMessages,
       pendingReaction: false,
       beforeRun: async () => {
         const recipients = this.activeRecipients(task);
         if (!recipients.length || store.completed(msg.chatId, msg.messageId)) return false;
 
         started = !await this.answered(message, recipients);
-        const active = this.activeRecipients(task);
+        let active = this.activeRecipients(task);
         if (!started || !active.length) return false;
+
+        if (!message.threadId) {
+          const context = task.context ?? this.createMessageContext(msg.chatId);
+          const exclude = new Set([msg.messageId]);
+          if (msg.replyToMessageId) exclude.add(msg.replyToMessageId);
+
+          contextMessages.push(...await context.before(Number(item.create_time) || msg.createTime, exclude));
+          active = this.activeRecipients(task);
+          if (!active.length) return false;
+        }
 
         instructions.push(`守护模式：你正在协助群成员 ${active.join('、')} 回应原消息发送者。请结合消息、引用和附件给出实质性答复；以 Bot 身份发言，不假称本人。最终答复由 bridge 发送并添加 @，无需另行发送聊天消息。`);
         instructions.push(`上下文信息不足时，先结合现有资料和可用工具查找信息，完成信息足够、可以独立执行的部分；不要猜测关键事实。本轮执行结束时，在最终回复中汇报已完成内容，将受阻部分标为“待补充信息”，列出具体缺少的信息及其影响，并明确请原消息发送者 ${msg.senderId} 补充；无法确定派发者时，直接请该任务对应的被守护成员（${active.join('、')}）补充。不得将受阻任务描述为已完成。`);
@@ -280,6 +295,7 @@ export class GuardManager {
 
   private async scan(chatId: string, userId: string, before: number, isActive: () => boolean): Promise<void> {
     const items = await this.list('chat', chatId, 100, undefined, before);
+    const context = this.createMessageContext(chatId, items);
     const candidates: NormalizedMessage[] = [];
     let incomplete = false;
 
@@ -306,7 +322,7 @@ export class GuardManager {
       const key = this.key(chatId, msg.messageId);
       if (this.tasks.has(key)) continue;
 
-      const task = { message: msg, recipients: this.matches(msg), isActive, cleanup: startPendingReaction(this.deps.channel, msg.messageId, 'OnIt') };
+      const task = { message: msg, recipients: this.matches(msg), isActive, context, cleanup: startPendingReaction(this.deps.channel, msg.messageId, 'OnIt') };
       this.tasks.set(key, task);
 
       try { await this.execute(task); }
@@ -317,7 +333,15 @@ export class GuardManager {
     if (incomplete) throw new Error('部分消息或回复证据读取失败');
   }
 
-  private async list(type: 'chat' | 'thread', id: string, limit = Infinity, after?: number, before?: number): Promise<FeishuMessageItem[]> {
+  private createMessageContext(chatId: string, snapshot: FeishuMessageItem[] = []): GuardMessageContext {
+    return new GuardMessageContext(this.deps.channel,
+      (limit, after, before) => this.list('chat', chatId, limit, after, before,
+        (item) => isGroupContextItem(item) && !this.deps.store.isProgress(item.message_id!)),
+      snapshot.map((item) => this.deps.store.isProgress(item.message_id!) ? { ...item, deleted: true } : item));
+  }
+
+  private async list(type: 'chat' | 'thread', id: string, limit = Infinity, after?: number, before?: number,
+    accept?: (item: FeishuMessageItem) => boolean): Promise<FeishuMessageItem[]> {
     const items: FeishuMessageItem[] = [];
     const tokens = new Set<string>();
     let token: string | undefined;
@@ -335,7 +359,8 @@ export class GuardManager {
         throw new Error('历史消息接口未返回有效数据');
       }
 
-      items.push(...(res.data.items ?? []).filter((item) => !before || Number(item.create_time) < before));
+      items.push(...(res.data.items ?? []).filter((item) => (!before || Number(item.create_time) < before)
+        && (after === undefined || Number(item.create_time) >= after) && (!accept || accept(item))));
       token = res.data.has_more ? res.data.page_token : undefined;
       if (res.data.has_more && !token) throw new Error('历史消息缺少分页标记');
       if (token && tokens.has(token)) throw new Error('历史消息分页标记重复');

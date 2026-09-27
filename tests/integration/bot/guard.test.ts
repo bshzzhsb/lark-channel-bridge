@@ -303,6 +303,60 @@ describe('group guard', () => {
     expect(h.pending.cancel('oc_group')).toEqual([]);
   });
 
+  it('supplies group background from before the triggering message, reusing the history snapshot', async () => {
+    const h = await harness();
+    h.setHistory([item('om_background', 90_000, 'ou_sender', []), item('om_question'),
+      item('om_later', 150_000, 'ou_sender', [])]);
+    await h.guard.command('', h.ctx); await h.guard.flush();
+    expect(h.runs).toHaveLength(1);
+    expect(h.runs[0]?.contextMessages).toEqual([expect.objectContaining({
+      messageId: 'om_background', senderId: 'ou_sender', content: 'om_background',
+      createdAt: new Date(90_000).toISOString(),
+    })]);
+    // One candidate snapshot and one independent reply-evidence query; no background query.
+    expect(h.list).toHaveBeenCalledTimes(2);
+  });
+
+  it('bounds live group background and skips deleted, quoted, progress and other-topic messages', async () => {
+    const h = await harness(); await h.enable();
+    const now = 10_000_000;
+    const background = Array.from({ length: 25 }, (_, i) => item(`om_context_${i}`, now - 1000 + i, 'ou_sender', []));
+    h.setHistory([...background, item('om_expired', now - 7_200_001, 'ou_sender', []),
+      item('om_future', now + 1, 'ou_sender', []),
+      { ...item('om_deleted', now - 4, 'ou_sender', []), deleted: true },
+      { ...item('om_other_topic', now - 3, 'ou_sender', []), root_id: 'om_root', thread_id: 'omt_other' },
+      item('om_cot', now - 2, 'ou_bot', []), item('om_quote', now - 1, 'ou_sender', [])]);
+    await h.store.progress('om_cot');
+    h.raw.set('om_question', item('om_question', now));
+    h.guard.accept({ ...message(), createTime: now, replyToMessageId: 'om_quote' });
+    await h.guard.flush();
+    const context = h.runs[0]?.contextMessages ?? [];
+    expect(context).toHaveLength(20);
+    expect(context.map((m) => m.messageId)).toEqual(background.slice(-20).map((m) => m.message_id));
+  });
+
+  it('keeps topic messages isolated from group background', async () => {
+    const h = await harness(); await h.enable();
+    h.setHistory([item('om_background', 90_000, 'ou_sender', [])]);
+    h.raw.set('om_question', { ...item('om_question'), thread_id: 'omt_question', root_id: 'om_root' });
+    h.guard.accept(message()); await h.guard.flush();
+    expect(h.runs[0]?.contextMessages).toEqual([]);
+    expect(h.list.mock.calls.every(([args]) => args.params.container_id_type === 'thread')).toBe(true);
+  });
+
+  it('continues replying when optional background reads fail', async () => {
+    const h = await harness(); await h.enable();
+    const original = h.list.getMockImplementation()!;
+    h.list.mockImplementation(async (args) => {
+      if (args.params.end_time) throw new Error('background unavailable');
+      return original(args);
+    });
+    h.guard.accept(message()); await h.guard.flush();
+    expect(h.runs).toHaveLength(1);
+    expect(h.runs[0]?.contextMessages).toEqual([]);
+    expect(h.store.completed('oc_group', 'om_question')).toBe(true);
+  });
+
   it('updates final mentions and reply eligibility when protected users turn guard off', async () => {
     const h = await harness(); await h.enable(); await h.enable('ou_other');
     await h.intake(message('om_question', ['ou_me', 'ou_other'])); await h.guard.flush();
@@ -395,6 +449,7 @@ describe('group guard', () => {
     blocked.resolve(); await h.guard.flush(); reaction.resolve();
     await vi.waitFor(() => expect(h.removeReaction).toHaveBeenCalledWith('om_question', 'delayed'));
     expect(h.runs).toEqual([]);
+    expect(h.list).not.toHaveBeenCalled();
     h.raw.set('om_next', item('om_next'));
     h.guard.accept(message('om_next'));
     await h.guard.command('off', h.ctx); await h.guard.flush();

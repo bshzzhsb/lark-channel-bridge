@@ -2,6 +2,7 @@ import type { LarkChannel, NormalizedMessage } from '@larksuite/channel';
 
 import { modelLabel, normalizeModelSelection, resolveModelArg } from '@/agent/models';
 import {
+  type AgentRunContextMessage,
   type BridgePromptContext,
   type BridgePromptInteractiveCard,
   type BridgePromptMention,
@@ -49,13 +50,25 @@ export function createImPromptPreparer(deps: ImPromptDeps) {
 
     const topicContext = await resolveTopicHistory(deps, request, batchIds, quotes);
 
+    const excluded = new Set([...batchIds, ...quotes.map((q) => q.messageId), ...topicContext.map((q) => q.messageId)]);
+    const contextMessages = (runOptions?.contextMessages ?? []).filter((message) => {
+      if (excluded.has(message.messageId)) return false;
+
+      excluded.add(message.messageId);
+      return true;
+    });
+
     const model = resolveModelInstructions(controls, lastRunModelByScope, scope);
     const { requestedModel, modelSwitched, modelSelection } = model;
     const extraInstructions = [...(model.extraInstructions ?? []), ...(runOptions?.instructions ?? [])];
     const prompt = runOptions?.prompt !== undefined
-      ? [...(extraInstructions ?? []), runOptions.prompt].filter(Boolean).join('\n\n')
+      ? [...(extraInstructions ?? []), contextMessages.length > 0
+        ? buildAgentPrompt({
+          context: buildPromptContext(batch, batch[0]!, channel.botIdentity),
+          contextMessages, userInput: runOptions.prompt,
+        }) : runOptions.prompt].filter(Boolean).join('\n\n')
       : buildPrompt({
-        batch, attachments, quotes, topicContext,
+        batch, attachments, quotes, topicContext, contextMessages,
         botIdentity: channel.botIdentity, extraInstructions
       });
 
@@ -63,6 +76,7 @@ export function createImPromptPreparer(deps: ImPromptDeps) {
       promptChars: prompt.length,
       quotes: quotes.length,
       topicContext: topicContext.length,
+      contextMessages: contextMessages.length,
       ...(modelSwitched ? { modelSwitchedTo: modelSelection } : {}),
     });
 
@@ -75,10 +89,11 @@ function buildPrompt(input: {
   attachments: LocalAttachment[];
   quotes: QuotedContext[];
   topicContext: QuotedContext[];
+  contextMessages: AgentRunContextMessage[];
   botIdentity?: { openId: string; name?: string; };
   extraInstructions?: string[];
 }): string {
-  const { batch, attachments, quotes, topicContext, botIdentity, extraInstructions } = input;
+  const { batch, attachments, quotes, topicContext, contextMessages, botIdentity, extraInstructions } = input;
   const first = batch[0];
 
   if (!first) return '';
@@ -94,6 +109,7 @@ function buildPrompt(input: {
         ? [...BRIDGE_AGENT_INSTRUCTIONS, ...extraInstructions]
         : BRIDGE_AGENT_INSTRUCTIONS,
     userInput,
+    contextMessages,
     ...(topicContext.length > 0 ? { topicContext: topicContext.map(toPromptTopicMessage) } : {}),
     quotedMessages: quotes.map(toPromptQuote),
     interactiveCards: batch.map(toPromptInteractiveCard).filter(isDefined),
