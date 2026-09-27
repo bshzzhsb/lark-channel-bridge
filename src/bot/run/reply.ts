@@ -284,7 +284,21 @@ async function sendFinalReply(input: {
   cardRenderOptions: { signCallback?: (action: string) => string; };
   completionMentions: string[];
 }): Promise<string | undefined> {
-  const body = renderText(input.state);
+  const inlineMentionIds = new Set<string>();
+  const allowedMentionIds = new Set(input.completionMentions);
+  const state = {
+    ...input.state,
+    blocks: input.state.blocks.map((block) => block.kind === 'text' ? {
+      ...block,
+      content: block.content.replace(/\[\[at:([^\]\s]+)\]\]/g, (_marker, id: string) => {
+        if (!allowedMentionIds.has(id)) return '';
+        inlineMentionIds.add(id);
+        const attribute = input.replyMode === 'card' ? 'id' : 'user_id';
+        return `<at ${attribute}=${JSON.stringify(id)}></at>`;
+      }),
+    } : block),
+  };
+  const body = renderText(state);
 
   // Nothing deliverable to send (agent produced no text on a clean finish;
   // error/interrupt/timeout keep `body` non-empty via their notices). Skip
@@ -295,13 +309,13 @@ async function sendFinalReply(input: {
     return;
   }
 
-  const mentionIds = input.completionMentions;
+  const mentionIds = input.completionMentions.filter((id) => !inlineMentionIds.has(id));
   const cardState = mentionIds.length > 0 ? {
-    ...input.state,
+    ...state,
     blocks: [{ kind: 'text' as const,
       content: mentionIds.map((id) => `<at id=${JSON.stringify(id)}></at>`).join(' '), streaming: false },
-      ...input.state.blocks],
-  } : input.state;
+      ...state.blocks],
+  } : state;
   const content = input.replyMode === 'card'
     ? { card: renderCard(cardState, input.cardRenderOptions) } : { markdown: body };
   const sendOpts = input.replyMode !== 'card' && mentionIds.length > 0

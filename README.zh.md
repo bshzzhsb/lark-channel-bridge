@@ -168,6 +168,8 @@ lark-channel-bridge profile export <name> --include-secrets --yes
 
 在群里发送 `@bot /guard` 开启守护，`@bot /guard off` 关闭，`@bot /guard status` 查看状态。有人 @你时，Bot 在原消息的话题内自动回复，同时 @你和发送者。
 
+`/onboard` 和守护任务遇到信息不足时，会先完成可独立执行的部分，再在最终回复中逐条列出“待补充信息”，每项前 @对应的任务派发者请求补充。无法确定派发者时，该项前直接 @你（`/onboard` 的请求者或对应的被守护成员）。
+
 ## 回复展示与 COT
 
 `/config` 可以调整三类展示选项：

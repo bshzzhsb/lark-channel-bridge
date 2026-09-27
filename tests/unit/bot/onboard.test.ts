@@ -43,6 +43,36 @@ describe('/onboard', () => {
     await handleOnboard('', setup.ctx);
     expect(setup.agentRuns[0]?.prompt).toContain('assignmentMessageIds');
     expect(setup.agentRuns[1]?.completionMentions).toEqual(['ou_user', 'ou_assigner', 'ou_second']);
+    const prompt = setup.agentRuns[1]!.prompt!;
+    const input = JSON.parse(JSON.parse(prompt.match(/<user_input>\n([\s\S]*?)\n<\/user_input>/)![1]!).text);
+    expect(input.tasks.map((task: { assignerOpenIds: string[] }) => task.assignerOpenIds))
+      .toEqual([['ou_assigner'], ['ou_second', 'ou_assigner']]);
+  });
+
+  it.each(['missing', 'discussion', 'bot', 'self'] as const)('falls back to the requester for an unverified %s assigner', async (kind) => {
+    const setup = await makeContext('off', JSON.stringify({
+      summary: '需要评审', tasks: [{ action: '完成评审',
+        evidenceMessageIds: kind === 'discussion' ? [] : ['om_assignment'],
+        assignmentMessageIds: ['om_assignment'] }],
+    }));
+    setup.ctx.channel.rawClient.im.v1.message.list = async () => ({ data: { items: kind === 'missing' ? [] : [{
+      message_id: 'om_assignment', msg_type: 'text', body: { content: '{"text":"请完成评审"}' },
+      sender: { id: kind === 'self' ? 'ou_bot' : 'ou_peer', id_type: 'open_id',
+        sender_type: kind === 'bot' ? 'app' : 'user' }, create_time: '1000',
+    }] } });
+    await handleOnboard('', setup.ctx);
+    const request = setup.agentRuns[1]!;
+    const input = JSON.parse(JSON.parse(request.prompt!.match(/<user_input>\n([\s\S]*?)\n<\/user_input>/)![1]!).text);
+    expect(input.tasks[0].assignerOpenIds).toEqual([]);
+    expect(input.requesterOpenId).toBe('ou_user');
+    expect(request.completionMentions).toEqual(['ou_user']);
+    expect(request.prompt).toContain('assignerOpenIds 为空时，直接请 requesterOpenId');
+    expect(request.prompt).toContain('待补充信息');
+    expect(request.prompt).toContain('不得将受阻任务描述为已完成');
+    expect(request.prompt).toContain('每个待补充信息项独占一行');
+    expect(request.prompt).toContain('**待补充信息：**');
+    expect(request.prompt).toContain('[[at:OPEN_ID]]');
+    expect(request.prompt).toContain('格式为“- [[at:OPEN_ID]]：需要补充的内容”');
   });
 
   it('retries a timed out summary with the same UUID without rerunning analysis', async () => {

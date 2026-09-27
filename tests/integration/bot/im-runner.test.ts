@@ -85,6 +85,66 @@ async function harness() {
 }
 
 describe('IM runner lifecycle', () => {
+  it.each(['markdown', 'text', 'card'] as const)('sends clarification requests once with real mentions in %s', async (mode) => {
+    const h = await harness();
+    h.controls.cfg.preferences = { ...h.controls.cfg.preferences, messageReply: mode };
+    vi.spyOn(h.cotClient, 'create').mockResolvedValue({ cot_id: 'cot-clarify', message_id: 'om_progress' });
+    vi.spyOn(h.cotClient, 'update').mockResolvedValue(undefined);
+    vi.spyOn(h.cotClient, 'complete').mockResolvedValue(undefined);
+    const finalText = '已完成资料整理。\n\n**待补充信息：**\n'
+      + '- [[at:ou_assigner]]：请补充验收标准。\n'
+      + '- [[at:ou_assigner]]：请补充相识日期和城市。\n'
+      + '- [[at:user-1]]：请补充未确定派发者的任务背景。';
+    for (const cotMode of ['off', 'brief'] as const) {
+      for (const stage of ['onboard-task', 'guard'] as const) {
+        const sentBefore = h.fakeChannel.sent.length;
+        const mentions = ['user-1', 'ou_assigner', 'ou_assigner', 'ou_observer'];
+        const { result } = await h.run({ reply: 'normal', stage,
+          ...(stage === 'guard' ? { resolveCompletionMentions: () => mentions } : { completionMentions: mentions }),
+        }, h.runner, cotMode, [
+          { type: 'final_text', content: finalText }, { type: 'done', terminationReason: 'normal' },
+        ]);
+        expect(result).toMatchObject({ finalText, replyMessageId: expect.stringMatching(/^om_fake_/) });
+        expect(h.fakeChannel.sent).toHaveLength(sentBefore + 1);
+        const sent = h.fakeChannel.sent.at(-1)!;
+        expect(JSON.stringify(sent.content)).toContain('待补充信息');
+        expect(JSON.stringify(sent.content).split('**待补充信息：**')).toHaveLength(2);
+        expect(JSON.stringify(sent.content)).not.toContain('[[at:');
+        if (mode === 'card') {
+          const card = JSON.stringify(sent.content);
+          expect(card.split('<at id=\\"ou_assigner\\"></at>')).toHaveLength(3);
+          expect(card).toContain('- <at id=\\"ou_assigner\\"></at>：请补充验收标准');
+          expect(card).toContain('- <at id=\\"ou_assigner\\"></at>：请补充相识日期和城市');
+          expect(card).toContain('- <at id=\\"user-1\\"></at>：请补充未确定派发者的任务背景');
+          expect(card).toContain('ou_observer');
+        } else {
+          expect(sent.content).toEqual({ markdown: finalText
+            .replaceAll('[[at:ou_assigner]]', '<at user_id="ou_assigner"></at>')
+            .replaceAll('[[at:user-1]]', '<at user_id="user-1"></at>') });
+          expect(sent.options).toMatchObject({ mentions: [{ openId: 'ou_observer' }] });
+        }
+      }
+    }
+  });
+
+  it.each(['markdown', 'text', 'card'] as const)('drops inline mentions outside the current completion recipients in %s', async (mode) => {
+    const h = await harness();
+    h.controls.cfg.preferences = { ...h.controls.cfg.preferences, messageReply: mode };
+    await h.run({ reply: 'normal', stage: 'guard', completionMentions: ['ou_removed', 'user-1'],
+      resolveCompletionMentions: () => ['user-1'],
+    }, h.runner, 'off', [
+      { type: 'final_text', content: '**待补充信息：**\n- [[at:ou_removed]] [[at:ou_unknown]]：请补充城市。' },
+      { type: 'done', terminationReason: 'normal' },
+    ]);
+    const sent = h.fakeChannel.sent[0]!;
+    expect(JSON.stringify(sent.content)).toContain('请补充城市');
+    expect(JSON.stringify(sent.content)).not.toContain('ou_removed');
+    expect(JSON.stringify(sent.content)).not.toContain('ou_unknown');
+    expect(JSON.stringify(sent.content)).not.toContain('[[at:');
+    if (mode === 'card') expect(JSON.stringify(sent.content)).toContain('user-1');
+    else expect(sent.options).toMatchObject({ mentions: [{ openId: 'user-1' }] });
+  });
+
   it.each(['markdown', 'text', 'card'] as const)('applies lifecycle options and returns reply receipts and mentions in %s with and without COT', async (mode) => {
     const h = await harness();
     h.controls.cfg.preferences = { ...h.controls.cfg.preferences, messageReply: mode };
