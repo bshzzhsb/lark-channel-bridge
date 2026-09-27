@@ -7,6 +7,7 @@ import { dirname, isAbsolute } from 'node:path';
 
 import { claudeCapability, codexCapability } from '@/agent/capability';
 import { normalizeModelSelection, resolveModelArg } from '@/agent/models';
+import type { AgentRunContextMessage } from '@/agent/prompt';
 import type { AgentAdapter } from '@/agent/types';
 import type { ActiveRuns } from '@/bot/active-runs';
 import { GROUP_MSG_SCOPE, hasGroupMsgScope } from '@/bot/app-scope';
@@ -164,6 +165,8 @@ export interface CommandContext {
 }
 
 export interface AgentRunOptions {
+  /** Prior chat messages used as background, separate from the triggering message. */
+  contextMessages?: AgentRunContextMessage[];
   /** Additional bridge instructions, applied to generated and custom prompts. */
   instructions?: string[];
   /** Recheck a queued run before preparing its prompt; false skips execution. */

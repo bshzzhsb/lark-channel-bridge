@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import type { AgentEvent } from '@/agent/types';
 import { ActiveRuns } from '@/bot/active-runs';
 import { CotClient, RunCot } from '@/bot/cot';
+import { createImPromptPreparer } from '@/bot/im/prompt';
 import { createImRunner } from '@/bot/im/runner';
 import { ProcessPool } from '@/bot/process-pool';
 import type { AgentRunOptions, Controls } from '@/commands';
@@ -237,6 +238,45 @@ describe('IM runner lifecycle', () => {
       return true;
     } });
     expect(h.agent.runOptions[0]?.prompt).toBe('additional instructions\n\ncustom task');
+  });
+
+  it.each([undefined, 'custom task'])('includes generic background separately from user input with prompt %s', async (prompt) => {
+    const h = await harness();
+    await h.run({ prompt, contextMessages: [
+      { messageId: 'om_background', senderId: 'ou_author', createdAt: '2026-09-27T10:00:00.000Z', content: 'background discussion' },
+      { messageId: 'om_background', senderId: 'ou_author', content: 'duplicate discussion' },
+      { messageId: 'message-1', senderId: 'user-1', content: 'duplicate trigger' },
+    ] });
+    const built = h.agent.runOptions[0]!.prompt;
+    expect(built).toContain('<message_context>');
+    expect(built).toContain('background discussion');
+    expect(built).not.toContain('duplicate discussion');
+    expect(built).not.toContain('duplicate trigger');
+    expect(built).toContain(`"text":"${prompt ?? 'hello'}"`);
+  });
+
+  it('deduplicates background against explicit quotes and topic history', async () => {
+    const h = await harness();
+    const raw = (id: string) => ({ message_id: id, msg_type: 'text', create_time: '1000',
+      sender: { id: 'ou_author', sender_type: 'user' }, body: { content: JSON.stringify({ text: id }) } });
+    vi.spyOn(h.deps.channel, 'fetchRawMessage').mockImplementation(async (id) =>
+      [raw(id)] as unknown as Awaited<ReturnType<LarkChannel['fetchRawMessage']>>);
+    Object.assign(h.deps.channel.rawClient.im.v1.message, {
+      list: vi.fn(async () => ({ code: 0, data: { items: [raw('om_topic')], has_more: false } })),
+    });
+    const prepare = createImPromptPreparer(h.deps);
+    const { prompt } = await prepare({
+      batch: [{ ...message(), threadId: 'omt_topic', rootId: 'om_root', replyToMessageId: 'om_quote' }],
+      scope: 'chat-1:omt_topic', mode: 'topic', cotRun: {} as RunCot,
+      runOptions: { contextMessages: ['om_quote', 'om_root', 'om_topic', 'om_background'].map((messageId) =>
+        ({ messageId, senderId: 'ou_author', content: `background ${messageId}` })) },
+    });
+    const context = JSON.parse(prompt.match(/<message_context>\n(.*?)\n<\/message_context>/s)![1]!) as {
+      messages: Array<{ messageId: string }>;
+    };
+    expect(context.messages.map((m) => m.messageId)).toEqual(['om_background']);
+    expect(prompt).toContain('<quoted_messages>');
+    expect(prompt).toContain('<topic_context>');
   });
 
   it('notifies both runner and per-run progress observers', async () => {
