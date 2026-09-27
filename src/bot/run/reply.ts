@@ -24,6 +24,7 @@ import {
 const REACTION_CLEANUP_GRACE_MS = 1000;
 
 interface ReplyInput {
+  onProgress?: (messageId: string) => Promise<void>;
   channel: LarkChannel;
   controls: Controls;
   request: ImRunRequest;
@@ -42,7 +43,7 @@ interface ReplyInput {
 export async function deliverRunReply(input: ReplyInput): Promise<ImRunResult | undefined> {
   const reply = createReplySession(input);
   const { channel, request, prepared } = input;
-  const reactionPromise = request.cotRun.enabled || reply.replyMode === 'card' || reply.silent
+  const reactionPromise = request.runOptions?.pendingReaction === false || request.cotRun.enabled || reply.replyMode === 'card' || reply.silent
     ? undefined : addWorkingReaction(channel, prepared.lastMsg.messageId);
 
   try {
@@ -54,9 +55,9 @@ export async function deliverRunReply(input: ReplyInput): Promise<ImRunResult | 
 
     if (reply.silent) return await deliverSilentReply(reply);
 
-    // Completion notifications need a standalone final message in every mode,
+    // Mentions and send-time callbacks require a standalone final message,
     // including when COT is disabled or its creation failed.
-    if (reply.completionMentions.length > 0) {
+    if (reply.requiresFinalReply) {
       const finalState = await reply.consume();
       await reply.sendFinal(finalAnswerOnlyState(reply.project(finalState)));
       return reply.resultFor(finalState);
@@ -101,18 +102,30 @@ function createReplySession(input: ReplyInput) {
   });
   const project = (state: RunState): RunState => getShowToolCalls(controls.cfg)
     ? state : { ...state, blocks: state.blocks.filter((b) => b.kind !== 'tool') };
-  const sendFinal = (state: RunState) => sendFinalReply({
-    channel, chatId, scope, state, replyMode, sendOpts, cardRenderOptions,
-    completionMentions,
-  });
+  let replyMessageId: string | undefined;
+  const sendFinal = async (state: RunState) => {
+    if (runOptions?.shouldSendReply && !runOptions.shouldSendReply(resultFor(state))) return;
+
+    const mentions = [...new Set((runOptions?.resolveCompletionMentions?.() ?? completionMentions).filter(Boolean))];
+    replyMessageId = await sendFinalReply({
+      channel, chatId, scope, state, replyMode, sendOpts, cardRenderOptions,
+      completionMentions: mentions,
+    });
+  };
   const resultFor = (state: RunState): ImRunResult => ({
     finalText: state.finalText, ...input.observedSession(), cwdRealpath: flow.cwdRealpath,
+    ...(replyMessageId ? { replyMessageId } : {}),
+    ...(state.terminal !== 'done' ? { error: state.errorMsg ?? state.terminal } : {}),
   });
 
   return {
     channel, chatId, scope, sendOpts, cardRenderOptions, replyMode, cotRun,
+    onProgress: async (id: string) => {
+      await Promise.all([input.onProgress?.(id), runOptions?.onProgress?.(id)]);
+    },
     execution: flow.execution, silent: runOptions?.reply === 'silent',
-    completionMentions,
+    requiresFinalReply: completionMentions.length > 0
+      || Boolean(runOptions?.resolveCompletionMentions || runOptions?.shouldSendReply),
     isCodex: () => controls.profileConfig.agentKind === 'codex',
     consume, project, sendFinal, resultFor,
   };
@@ -127,6 +140,11 @@ async function deliverCotReply(reply: ReplySession) {
     log.warn('cot', 'fallback-existing-reply', { reason: 'create-disabled' });
 
     return { handled: false as const };
+  }
+
+  if (reply.onProgress && cotRun.messageId) {
+    try { await reply.onProgress(cotRun.messageId); }
+    catch (err) { log.fail('run', err, { stage: 'record-progress' }); }
   }
 
   const cotDone = cotRun.consume(execution.subscribe());
@@ -148,7 +166,7 @@ async function deliverCotReply(reply: ReplySession) {
 
   await reply.sendFinal(finalAnswerOnlyState(finalState));
 
-  return { handled: true as const, result: undefined };
+  return { handled: true as const, result: reply.resultFor(finalState) };
 }
 
 async function deliverSilentReply(reply: ReplySession): Promise<ImRunResult> {
@@ -265,7 +283,7 @@ async function sendFinalReply(input: {
   sendOpts: { replyTo: string; replyInThread?: boolean; };
   cardRenderOptions: { signCallback?: (action: string) => string; };
   completionMentions: string[];
-}): Promise<void> {
+}): Promise<string | undefined> {
   const body = renderText(input.state);
 
   // Nothing deliverable to send (agent produced no text on a clean finish;
@@ -294,6 +312,7 @@ async function sendFinalReply(input: {
 
   requireMessageReceipt(result, input.replyMode);
   log.info('outbound', 'sent', outboundLogFields(input, input.replyMode, body, result));
+  return result.messageId;
 }
 
 function requireMessageReceipt(result: { messageId?: string; }, type: string): void {

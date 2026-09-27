@@ -36,18 +36,13 @@ export function startPendingReaction(
   channel: LarkChannel,
   messageId: string,
   emojiType: string,
-): () => void {
+): () => Promise<void> {
   const added = addWorkingReaction(channel, messageId, emojiType);
-  let removing = false;
+  let removing: Promise<void> | undefined;
 
-  return () => {
-    if (removing) return;
-
-    removing = true;
-    void added.then(async (reactionId) => {
+  return () => removing ??= added.then(async (reactionId) => {
       if (reactionId) await removeReaction(channel, messageId, reactionId);
     });
-  };
 }
 
 /** Remove a previously-added reaction. Tolerates errors silently — best

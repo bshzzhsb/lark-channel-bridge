@@ -192,6 +192,7 @@ export function helpCard(agentName = 'Agent'): object {
         '- `/account` — 查看当前应用；`/account change` 换 appId/secret 并重连',
         '- `/config` — 调整偏好、访问控制和 lark-cli 身份策略',
         '- `/status` — 当前状态',
+        '- `/guard [on|off|status]` — 在群里 @bot，开启、关闭或查看自己的守护模式',
         '- `/onboard` — 在群里 @bot，梳理并处理需要你做的事',
         '- `/stop` — 结束当前正在跑的任务（也可点卡片底部 ⏹ 终止 按钮）',
         '- `/stop comment:<scopeHash>` — 管理员停止云文档评论任务',

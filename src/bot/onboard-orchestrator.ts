@@ -114,6 +114,7 @@ export function createOnboardOrchestrator(deps: OnboardOrchestratorDeps):
         return {
           scopeId: scope,
           ...(anchorMessageId ? { anchorMessageId } : {}),
+          ...(result?.replyMessageId ? { replyMessageId: result.replyMessageId } : {}),
           ...(result?.finalText !== undefined ? { finalText: result.finalText } : {}),
           ...(result?.sessionId ? { sessionId: result.sessionId } : {}),
           ...(result?.threadId ? { threadId: result.threadId } : {}),

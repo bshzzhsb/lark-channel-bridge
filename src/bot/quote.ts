@@ -1,6 +1,7 @@
 import type {
   ApiMessageItem,
   LarkChannel,
+  NormalizedMessage,
   RawMessageEvent,
 } from '@larksuite/channel';
 import { normalize } from '@larksuite/channel';
@@ -131,6 +132,26 @@ function normalizedMentions(value: FeishuMessageItem['mentions']): RawMessageEve
     if (typeof mention.key !== 'string' || !id) return [];
     return [{ key: mention.key, id, ...(typeof mention.name === 'string' ? { name: mention.name } : {}) }];
   });
+}
+
+/** Preserve resources and event identity when replaying a historical group message. */
+export async function normalizeHistoryMessage(
+  channel: LarkChannel, item: FeishuMessageItem, chatId: string,
+): Promise<NormalizedMessage> {
+  const raw: RawMessageEvent = {
+    sender: { sender_id: { open_id: item.sender?.id }, sender_type: item.sender?.sender_type },
+    message: {
+      message_id: item.message_id!, chat_id: chatId, chat_type: 'group',
+      message_type: item.msg_type ?? 'text', content: item.body?.content ?? '',
+      create_time: String(item.create_time ?? 0), mentions: normalizedMentions(item.mentions),
+      thread_id: item.thread_id, root_id: item.root_id, parent_id: item.parent_id,
+    },
+  };
+  const message = await normalize(raw, {
+    botIdentity: channel.botIdentity ?? { openId: '', name: '' },
+    fetchSubMessages: async (id) => (await fetchFeishuMessageItems(channel, id)).map(toApiMessageItem),
+  });
+  return { ...message, raw };
 }
 
 function toApiMessageItem(item: FeishuMessageItem): ApiMessageItem {

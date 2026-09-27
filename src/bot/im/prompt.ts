@@ -50,7 +50,8 @@ export function createImPromptPreparer(deps: ImPromptDeps) {
     const topicContext = await resolveTopicHistory(deps, request, batchIds, quotes);
 
     const model = resolveModelInstructions(controls, lastRunModelByScope, scope);
-    const { extraInstructions, requestedModel, modelSwitched, modelSelection } = model;
+    const { requestedModel, modelSwitched, modelSelection } = model;
+    const extraInstructions = [...(model.extraInstructions ?? []), ...(runOptions?.instructions ?? [])];
     const prompt = runOptions?.prompt !== undefined
       ? [...(extraInstructions ?? []), runOptions.prompt].filter(Boolean).join('\n\n')
       : buildPrompt({

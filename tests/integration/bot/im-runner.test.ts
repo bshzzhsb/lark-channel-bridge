@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { join } from 'node:path';
 
+import type { AgentEvent } from '@/agent/types';
 import { ActiveRuns } from '@/bot/active-runs';
 import { CotClient, RunCot } from '@/bot/cot';
 import { createImRunner } from '@/bot/im/runner';
@@ -58,8 +59,8 @@ async function harness() {
   const deps = { channel, executor, sessions, workspaces, media, controls };
   const runner = createImRunner(deps);
   const cotClient = new CotClient({ tenant: 'feishu', appId: 'test', appSecret: 'secret' });
-  const run = async (options: AgentRunOptions = {}, target = runner, cotMode: 'off' | 'brief' = 'off') => {
-    agent.setEvents([
+  const run = async (options: AgentRunOptions = {}, target = runner, cotMode: 'off' | 'brief' = 'off', events?: AgentEvent[]) => {
+    agent.setEvents(events ?? [
       { type: 'system', sessionId: 'session-1' },
       { type: 'final_text', content: 'answer' },
       { type: 'done', sessionId: 'session-1', terminationReason: 'normal' },
@@ -84,6 +85,132 @@ async function harness() {
 }
 
 describe('IM runner lifecycle', () => {
+  it.each(['markdown', 'text', 'card'] as const)('applies lifecycle options and returns reply receipts and mentions in %s with and without COT', async (mode) => {
+    const h = await harness();
+    h.controls.cfg.preferences = { ...h.controls.cfg.preferences, messageReply: mode };
+    const addReaction = vi.fn();
+    Object.assign(h.deps.channel, { addReaction });
+    vi.spyOn(h.cotClient, 'create').mockResolvedValue({ cot_id: 'cot-guard', message_id: 'om_progress' });
+    vi.spyOn(h.cotClient, 'update').mockResolvedValue(undefined);
+    vi.spyOn(h.cotClient, 'complete').mockResolvedValue(undefined);
+    const onProgress = vi.fn(async () => {});
+    for (const cotMode of ['off', 'brief'] as const) {
+      const { result } = await h.run({ reply: 'normal', stage: 'task',
+        completionMentions: ['ou_guarded', 'user-1'],
+        instructions: ['任务说明：协助 ou_guarded 回应发送者。'], pendingReaction: false,
+        beforeRun: async () => true, shouldSendReply: () => true, onProgress,
+      }, h.runner, cotMode);
+      expect(result).toMatchObject({ replyMessageId: expect.stringMatching(/^om_fake_/), finalText: 'answer' });
+      expect(h.agent.runOptions.at(-1)?.prompt).toContain('任务说明');
+      expect(h.agent.runOptions.at(-1)?.prompt).toContain('ou_guarded');
+      const sent = h.fakeChannel.sent.at(-1)!;
+      if (mode === 'card') {
+        expect(JSON.stringify(sent.content)).toContain('ou_guarded');
+        expect(JSON.stringify(sent.content)).toContain('user-1');
+      } else expect(sent.options).toMatchObject({ mentions: [{ openId: 'ou_guarded' }, { openId: 'user-1' }] });
+    }
+    expect(onProgress).toHaveBeenCalledWith('om_progress');
+    expect(addReaction).not.toHaveBeenCalled();
+  });
+
+  it('skips runs before spawn and suppresses final replies through lifecycle callbacks', async () => {
+    const h = await harness();
+    const skipped = await h.run({ beforeRun: async () => false, reply: 'normal' });
+    expect(skipped.result).toBeUndefined(); expect(h.agent.runOptions).toHaveLength(0);
+    const canceled = await h.run({ beforeRun: async () => true, shouldSendReply: () => false,
+      reply: 'normal' });
+    expect(canceled.result).not.toHaveProperty('replyMessageId');
+    expect(h.fakeChannel.sent).toEqual([]);
+  });
+
+  it('returns send failures without a successful reply receipt', async () => {
+    const h = await harness();
+    vi.spyOn(h.deps.channel, 'send').mockRejectedValueOnce(new Error('send failed'));
+    const { result } = await h.run({ reply: 'normal', completionMentions: ['ou_guarded'],
+      beforeRun: async () => true, shouldSendReply: () => true });
+    expect(result).toEqual({ error: 'send failed' });
+  });
+
+  it.each(['markdown', 'text', 'card'] as const)('checks reply outcome and resolves mentions at send time in %s', async (mode) => {
+    const h = await harness();
+    h.controls.cfg.preferences = { ...h.controls.cfg.preferences, messageReply: mode };
+    let recipients = ['ou_removed'];
+    const shouldSendReply = vi.fn((outcome) => {
+      expect(outcome).toMatchObject({ finalText: 'answer' });
+      expect(outcome.error).toBeUndefined();
+      recipients = ['ou_current', 'ou_current', ''];
+      return true;
+    });
+    const resolveCompletionMentions = vi.fn(() => recipients);
+    await h.run({ reply: 'normal', completionMentions: ['ou_fallback'],
+      shouldSendReply, resolveCompletionMentions });
+    expect(shouldSendReply).toHaveBeenCalledTimes(1);
+    expect(resolveCompletionMentions).toHaveBeenCalledTimes(1);
+    expect(h.fakeChannel.streams).toEqual([]);
+    const sent = h.fakeChannel.sent[0]!;
+    if (mode === 'card') {
+      expect(JSON.stringify(sent.content)).toContain('ou_current');
+      expect(JSON.stringify(sent.content)).not.toContain('ou_fallback');
+    } else expect(sent.options).toMatchObject({ mentions: [{ openId: 'ou_current' }] });
+  });
+
+  it.each(['markdown', 'text', 'card'] as const)('suppresses failed replies without streaming in %s', async (mode) => {
+    const h = await harness();
+    h.controls.cfg.preferences = { ...h.controls.cfg.preferences, messageReply: mode };
+    const shouldSendReply = vi.fn((outcome) => !outcome.error);
+    const resolveCompletionMentions = vi.fn(() => ['ou_user']);
+    const { result } = await h.run({ reply: 'normal', shouldSendReply, resolveCompletionMentions },
+      h.runner, 'off', [{ type: 'error', message: 'agent failed', terminationReason: 'failed' }]);
+    expect(result).toMatchObject({ error: 'agent failed' });
+    expect(result).not.toHaveProperty('replyMessageId');
+    expect(shouldSendReply).toHaveBeenCalledWith(expect.objectContaining({ error: 'agent failed' }));
+    expect(resolveCompletionMentions).not.toHaveBeenCalled();
+    expect(h.fakeChannel.sent).toEqual([]);
+    expect(h.fakeChannel.streams).toEqual([]);
+  });
+
+  it('appends caller instructions to custom prompts after beforeRun', async () => {
+    const h = await harness();
+    const instructions: string[] = [];
+    await h.run({ prompt: 'custom task', instructions, beforeRun: async () => {
+      instructions.push('additional instructions');
+      return true;
+    } });
+    expect(h.agent.runOptions[0]?.prompt).toBe('additional instructions\n\ncustom task');
+  });
+
+  it('notifies both runner and per-run progress observers', async () => {
+    const h = await harness();
+    const globalProgress = vi.fn(async () => {});
+    const runProgress = vi.fn(async () => {});
+    const runner = createImRunner({ ...h.deps, onProgress: globalProgress });
+    vi.spyOn(h.cotClient, 'create').mockResolvedValue({ cot_id: 'cot-task', message_id: 'om_progress' });
+    vi.spyOn(h.cotClient, 'update').mockResolvedValue(undefined);
+    vi.spyOn(h.cotClient, 'complete').mockResolvedValue(undefined);
+    await h.run({ onProgress: runProgress }, runner, 'brief');
+    expect(globalProgress).toHaveBeenCalledWith('om_progress');
+    expect(runProgress).toHaveBeenCalledWith('om_progress');
+  });
+
+  it('calls beforeRun after earlier runs finish in the same scope', async () => {
+    const h = await harness();
+    let unblock!: () => void;
+    const blocked = new Promise<void>((resolve) => { unblock = resolve; });
+    const resolveMedia = h.deps.media.resolve.bind(h.deps.media);
+    vi.spyOn(h.deps.media, 'resolve').mockImplementationOnce(async (...args) => {
+      await blocked; return resolveMedia(...args);
+    });
+    const first = h.run();
+    const beforeRun = vi.fn(async () => true);
+    const second = h.run({ beforeRun });
+    await vi.waitFor(() => expect(h.deps.media.resolve).toHaveBeenCalledTimes(1));
+    expect(beforeRun).not.toHaveBeenCalled();
+    unblock();
+    await Promise.all([first, second]);
+    expect(beforeRun).toHaveBeenCalledTimes(1);
+    expect(h.agent.runOptions).toHaveLength(2);
+  });
+
   it.each(['markdown', 'text', 'card'] as const)('mentions the requester in the final %s result with COT off', async (mode) => {
     const h = await harness();
     h.controls.cfg.preferences = { ...h.controls.cfg.preferences, messageReply: mode };

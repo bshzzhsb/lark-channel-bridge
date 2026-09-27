@@ -79,6 +79,7 @@ export class ChannelConnection implements BridgeChannel {
 
     activeRuns.pauseNewRuns('bridge-disconnect');
     pending.cancelAll();
+    this.runtime.guard.stop();
 
     // A connect or service start already in flight must settle before cleanup.
     // Wait for the raw startup task so rollback cannot wait on itself.
@@ -106,7 +107,7 @@ export class ChannelConnection implements BridgeChannel {
   private async flushStores(): Promise<void> {
     const { sessions, sessionCatalog, workspaces } = this.deps;
     const { callbackNonceStore } = this.runtime;
-    const stores = { sessions, sessionCatalog, callbackNonceStore, workspaces };
+    const stores = { guard: this.runtime.guard, sessions, sessionCatalog, callbackNonceStore, workspaces };
 
     await Promise.all(Object.entries(stores).map(async ([step, store]) => {
       try {

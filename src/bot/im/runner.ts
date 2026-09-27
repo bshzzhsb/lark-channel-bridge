@@ -24,6 +24,7 @@ import { createImPromptPreparer } from './prompt';
 import type { ImRunner,ImRunRequest, ImRunResult } from './types';
 
 export interface ImRunnerDeps {
+  onProgress?: (messageId: string) => Promise<void>;
   channel: LarkChannel;
   executor: RunExecutor;
   sessions: SessionStore;
@@ -37,8 +38,9 @@ export interface ImRunnerDeps {
 export function createImRunner(deps: ImRunnerDeps) {
   const preparePrompt = createImPromptPreparer(deps);
   const activePolicyFingerprints = new Map<string, string>();
-  const run: ImRunner = async (request) => {
+  const execute: ImRunner = async (request) => {
     try {
+      if (request.runOptions?.beforeRun && !await request.runOptions.beforeRun()) return;
       return await executeImRun(deps, request, preparePrompt, activePolicyFingerprints);
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
@@ -49,6 +51,17 @@ export function createImRunner(deps: ImRunnerDeps) {
       activePolicyFingerprints.delete(request.scope);
       await request.cotRun.finish('done');
     }
+  };
+
+  const chains = new Map<string, Promise<unknown>>();
+  const run: ImRunner = (request) => {
+    const previous = chains.get(request.scope) ?? Promise.resolve();
+    const result = previous.catch(() => {}).then(() => execute(request));
+    chains.set(request.scope, result);
+    void result.finally(() => {
+      if (chains.get(request.scope) === result) chains.delete(request.scope);
+    }).catch(() => {});
+    return result;
   };
 
   return { run, policyFingerprintForScope: (scope: string) => activePolicyFingerprints.get(scope) };
@@ -188,6 +201,7 @@ async function executeImRun(
 
   return deliverRunReply({
     channel: deps.channel, controls: deps.controls, request, prepared, flow,
+    onProgress: deps.onProgress,
     recordSession: observer.record, observedSession: observer.result,
     idleTimeoutMs, cardRenderOptions,
   });

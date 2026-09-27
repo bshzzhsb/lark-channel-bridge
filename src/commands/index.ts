@@ -11,6 +11,7 @@ import type { AgentAdapter } from '@/agent/types';
 import type { ActiveRuns } from '@/bot/active-runs';
 import { GROUP_MSG_SCOPE, hasGroupMsgScope } from '@/bot/app-scope';
 import { createBoundChat, defaultChatName } from '@/bot/group';
+import { type GuardManager, handleGuard } from '@/bot/guard';
 import { fetchKnownChats, type KnownChat } from '@/bot/lark-info';
 import { handleOnboard } from '@/bot/onboard';
 import type { ProcessPool } from '@/bot/process-pool';
@@ -121,6 +122,7 @@ export interface Controls {
 }
 
 export interface CommandContext {
+  guard?: GuardManager;
   channel: LarkChannel;
   msg: NormalizedMessage;
   /**
@@ -162,6 +164,18 @@ export interface CommandContext {
 }
 
 export interface AgentRunOptions {
+  /** Additional bridge instructions, applied to generated and custom prompts. */
+  instructions?: string[];
+  /** Recheck a queued run before preparing its prompt; false skips execution. */
+  beforeRun?: () => Promise<boolean>;
+  /** Decide whether to send after completion; uses a standalone final reply. */
+  shouldSendReply?: (result: { finalText?: string; error?: string }) => boolean;
+  /** Resolve the final reply's mention IDs at send time, overriding completionMentions. */
+  resolveCompletionMentions?: () => string[];
+  /** Observe successfully created COT progress messages. */
+  onProgress?: (messageId: string) => Promise<void>;
+  /** Set false when the caller manages the pending reaction. Defaults to true. */
+  pendingReaction?: boolean;
   prompt?: string;
   sendOpts?: { replyTo: string; replyInThread: boolean };
   cot?: AgentRunCotOptions;
@@ -198,6 +212,7 @@ export interface AgentRunRequest extends AgentRunOptions {
 }
 
 export interface AgentRunResult {
+  replyMessageId?: string;
   scopeId: string;
   anchorMessageId?: string;
   finalText?: string;
@@ -251,10 +266,12 @@ const handlers: Record<string, Handler> = {
   '/remove': handleRemove,
   '/meeting': handleMeeting,
   '/onboard': handleOnboard,
+  '/guard': handleGuard,
 };
 
 const commandOptions: Partial<Record<string, CommandOptions>> = {
   '/onboard': { clearPending: false },
+  '/guard': { clearPending: false },
 };
 
 function clearCommandPending(cmd: string, ctx: CommandContext): void {
