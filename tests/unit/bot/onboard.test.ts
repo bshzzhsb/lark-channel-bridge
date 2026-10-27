@@ -144,6 +144,21 @@ describe('/onboard', () => {
     expect(setup.agentRuns).toHaveLength(0);
   });
 
+  it('reports execution delivery failures under the command instead of replying to the COT message', async () => {
+    const setup = await makeContext('brief', taskAnalysis());
+    const runAgent = setup.ctx.runAgent!;
+    setup.ctx.runAgent = async (request) => {
+      const result = await runAgent(request);
+      return request.stage === 'onboard-task'
+        ? { ...result, anchorMessageId: 'om_cot_task', error: '发送结论失败' } : result;
+    };
+    await handleOnboard('', setup.ctx);
+    expect(setup.sent.at(-1)).toEqual({
+      input: { markdown: '❌ /onboard 失败：发送结论失败' },
+      opts: { replyTo: 'om_command', replyInThread: true },
+    });
+  });
+
   it('sends the analysis summary without COT when globally off and no task is found', async () => {
     const setup = await makeContext('off', JSON.stringify({ summary: '无待办', title: '', tasks: [] }), 'conversation');
     await handleOnboard('', setup.ctx);
@@ -168,7 +183,7 @@ describe('/onboard', () => {
   it.each([
     { label: 'main chat with topic replies', placement: 'thread', topic: false,
       analysisScope: rootTopicScope('oc_group', 'om_command'), analysisInThread: true,
-      taskPlacement: 'new-topic' },
+      taskPlacement: 'current' },
     { label: 'existing topic with topic replies', placement: 'thread', topic: true,
       analysisScope: 'oc_group:omt_topic', analysisInThread: true,
       taskPlacement: 'current' },
@@ -195,12 +210,13 @@ describe('/onboard', () => {
     expect(setup.ctx.sessions.getRaw(scenario.analysisScope)?.sessionId).toBe('analysis-session');
     expect(setup.agentRuns).toHaveLength(2);
     expect(setup.agentRuns[0]).toMatchObject({
-      stage: 'onboard-analysis', scopeId: scenario.analysisScope,
+      stage: 'onboard-analysis', scopeId: scenario.analysisScope, access: 'read-only',
       sendOpts: { replyInThread: scenario.analysisInThread },
       cot: { stepName: 'onboarding' },
     });
     expect(setup.agentRuns[1]).toMatchObject({
-      stage: 'onboard-task', scopeId: scenario.analysisScope,
+      stage: 'onboard-task', scopeId: scenario.analysisScope, access: 'profile',
+      sendOpts: { replyTo: 'om_command', replyInThread: scenario.analysisInThread },
       completionMentions: ['ou_user'],
       sessionAnchor: {
         title: '完成设计评审',
@@ -208,6 +224,10 @@ describe('/onboard', () => {
         placement: scenario.taskPlacement,
       },
     });
+    expect(setup.agentRuns[0]?.prompt).toContain('然后自动执行');
+    expect(setup.agentRuns[0]?.prompt).toContain('不适用于后续执行阶段或用户请求');
+    expect(setup.agentRuns[1]?.prompt).toContain('分析阶段已结束');
+    expect(setup.agentRuns[1]?.prompt).toContain('本阶段应调用所需工具推进任务');
     expect(setup.agentRuns[1]?.prompt).toContain('周五前给出意见');
   });
 
