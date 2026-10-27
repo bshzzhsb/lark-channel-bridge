@@ -466,7 +466,8 @@ async function createHarness(options: {
     codex: {
       binaryPath: '/usr/local/bin/codex',
     },
-    ...(options.messageReply ? { preferences: { messageReply: options.messageReply } } : {}),
+    // These cases exercise the progress stream used when COT is disabled.
+    preferences: { cotMessages: 'off', ...(options.messageReply ? { messageReply: options.messageReply } : {}) },
   });
   const profileConfig = {
     ...baseProfileConfig,
