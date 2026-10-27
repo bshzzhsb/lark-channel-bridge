@@ -8,7 +8,10 @@ import { ActiveRuns } from '@/bot/active-runs';
 import { CotClient, RunCot } from '@/bot/cot';
 import { createImPromptPreparer } from '@/bot/im/prompt';
 import { createImRunner } from '@/bot/im/runner';
+import { createOnboardOrchestrator } from '@/bot/onboard-orchestrator';
+import { PendingQueue } from '@/bot/pending-queue';
 import { ProcessPool } from '@/bot/process-pool';
+import { rootTopicScope } from '@/bot/topic-scope';
 import type { AgentRunOptions, Controls } from '@/commands';
 import { createDefaultProfileConfig } from '@/config/profile-schema';
 import { MediaCache } from '@/media/cache';
@@ -84,6 +87,95 @@ async function harness() {
   });
   return { run, runner, deps, agent, sessions, controls, fakeChannel, cotClient };
 }
+
+describe.each(['brief', 'off', 'failed'] as const)('onboard orchestration with COT %s', (cotMode) => {
+  it.each([
+    { placement: 'thread', topic: false },
+    { placement: 'thread', topic: true },
+    { placement: 'conversation', topic: false },
+    { placement: 'conversation', topic: true },
+  ] as const)('delivers the conclusion in the source conversation with $placement replies, topic=$topic', async (scenario) => {
+    const h = await harness();
+    h.controls.cfg.preferences = { ...h.controls.cfg.preferences,
+      cotMessages: cotMode === 'off' ? 'off' : 'brief', groupReplyPlacement: scenario.placement };
+    h.controls.profileConfig.access.allowedChats = ['chat-1'];
+    const create = vi.spyOn(h.cotClient, 'create');
+    if (cotMode === 'failed') create.mockRejectedValue(new Error('COT unavailable'));
+    else create.mockResolvedValue({ cot_id: 'cot-task', message_id: 'om_cot_task' });
+    vi.spyOn(h.cotClient, 'update').mockResolvedValue(undefined);
+    vi.spyOn(h.cotClient, 'complete').mockResolvedValue(undefined);
+    const originalSend = h.fakeChannel.send.bind(h.fakeChannel);
+    vi.spyOn(h.fakeChannel, 'send').mockImplementation(async (chatId, content, options) => {
+      if ((options as { replyTo?: string })?.replyTo === 'om_cot_task') {
+        throw new Error('230001: create_params_invalid');
+      }
+      return originalSend(chatId, content, options);
+    });
+    const runAgent = createOnboardOrchestrator({
+      ...h.deps, cotClient: h.cotClient, pending: new PendingQueue(0, () => {}),
+      execute: ({ message, ...request }) => h.runner.run({ ...request, batch: [message] }),
+    });
+    const inThread = scenario.topic || scenario.placement === 'thread';
+    const scope = scenario.topic ? 'chat-1:omt-topic'
+      : inThread ? rootTopicScope('chat-1', 'message-1') : 'chat-1';
+    h.agent.setEvents([
+      { type: 'system', sessionId: 'task-session' },
+      { type: 'final_text', content: '任务已完成，结论如下。' },
+      { type: 'done', sessionId: 'task-session', terminationReason: 'normal' },
+    ]);
+    const result = await runAgent({
+      message: { ...message(), chatType: 'group', mentionedBot: true,
+        ...(scenario.topic ? { threadId: 'omt-topic' } : {}) },
+      scopeId: scope, mode: inThread ? 'topic' : 'group',
+      prompt: '执行群待办', stage: 'onboard-task', completionMentions: ['user-1'],
+      sessionAnchor: { title: '群待办', fallbackMessage: '正在处理。', placement: 'current' },
+    });
+    expect(result).toMatchObject({ scopeId: scope, finalText: '任务已完成，结论如下。',
+      replyMessageId: expect.stringMatching(/^om_fake_/) });
+    expect(result.error).toBeUndefined();
+    expect(h.fakeChannel.sent.at(-1)).toMatchObject({
+      content: { markdown: '任务已完成，结论如下。' },
+      options: { replyTo: 'message-1', replyInThread: inThread, mentions: [{ openId: 'user-1' }] },
+    });
+    expect(h.fakeChannel.sent).toHaveLength(cotMode === 'brief' ? 1 : 2);
+    if (cotMode === 'off') expect(create).not.toHaveBeenCalled();
+    else {
+      expect(create).toHaveBeenCalledTimes(1);
+      expect(create).toHaveBeenCalledWith('chat-1', 'message-1', inThread);
+    }
+    expect(h.sessions.getRaw(scope)?.sessionId).toBe('task-session');
+  });
+
+  it('uses an ordinary message as the reply target when explicitly opening a new task topic', async () => {
+    const h = await harness();
+    h.controls.cfg.preferences = { ...h.controls.cfg.preferences, cotMessages: cotMode === 'off' ? 'off' : 'brief' };
+    h.controls.profileConfig.access.allowedChats = ['chat-1'];
+    const create = vi.spyOn(h.cotClient, 'create');
+    if (cotMode === 'failed') create.mockRejectedValue(new Error('COT unavailable'));
+    else create.mockResolvedValue({ cot_id: 'cot-task', message_id: 'om_cot_task' });
+    vi.spyOn(h.cotClient, 'update').mockResolvedValue(undefined);
+    vi.spyOn(h.cotClient, 'complete').mockResolvedValue(undefined);
+    h.agent.setEvents([
+      { type: 'final_text', content: '任务结论' }, { type: 'done', terminationReason: 'normal' },
+    ]);
+    const runAgent = createOnboardOrchestrator({
+      ...h.deps, cotClient: h.cotClient, pending: new PendingQueue(0, () => {}),
+      execute: ({ message, ...request }) => h.runner.run({ ...request, batch: [message] }),
+    });
+    const result = await runAgent({
+      message: { ...message(), chatType: 'group' }, scopeId: 'chat-1', mode: 'topic',
+      prompt: '执行群待办', completionMentions: ['user-1'],
+      sessionAnchor: { title: '群待办', fallbackMessage: '正在处理。', placement: 'new-topic' },
+    });
+    expect(result.error).toBeUndefined();
+    expect(result.scopeId).toBe(rootTopicScope('chat-1', 'om_fake_1'));
+    expect(h.fakeChannel.sent).toMatchObject([
+      { content: { markdown: '正在处理。' }, options: { replyTo: 'message-1', replyInThread: false } },
+      { content: { markdown: '任务结论' }, options: { replyTo: 'om_fake_1', replyInThread: true } },
+    ]);
+    if (cotMode !== 'off') expect(create).toHaveBeenCalledWith('chat-1', 'om_fake_1', true);
+  });
+});
 
 describe('IM runner lifecycle', () => {
   it.each(['markdown', 'text', 'card'] as const)('sends clarification requests once with real mentions in %s', async (mode) => {

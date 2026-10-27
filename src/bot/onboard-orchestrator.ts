@@ -36,11 +36,9 @@ export function createOnboardOrchestrator(deps: OnboardOrchestratorDeps):
   const { channel, controls, cotClient, pending, sessions, workspaces, execute } = deps;
   return async (request) => {
     const chatId = request.message.chatId;
-    const sourceSendOpts = request.sendOpts
+    let sourceSendOpts = request.sendOpts
       ?? replyOptions(controls.cfg, request.message, request.mode === 'topic');
     const opensTaskTopic = request.sessionAnchor?.placement === 'new-topic';
-    const anchorInThread = !opensTaskTopic && sourceSendOpts.replyInThread;
-    const answerInThread = opensTaskTopic || anchorInThread;
     const runCot = request.sessionAnchor
       ? {
           ...request.cot,
@@ -52,37 +50,46 @@ export function createOnboardOrchestrator(deps: OnboardOrchestratorDeps):
     let anchorMessageId: string | undefined;
     let message = request.message;
     let sendOpts = sourceSendOpts;
-    const cotRun = new RunCot({
-      client: cotClient,
-      mode: () => getCotMessages(controls.cfg),
-      chatId,
-      originMessageId: request.message.messageId,
-      replyInThread: request.sessionAnchor ? anchorInThread : sourceSendOpts.replyInThread,
-      scope,
-      inputPreview: runCot?.inputPreview ?? request.prompt ?? request.message.content,
-      stepName: runCot?.stepName,
-      detail: runCot?.detail,
-      onCreated: runCot?.onCreated,
-    });
+    let cotRun: RunCot | undefined;
 
     try {
+      if (opensTaskTopic && request.sessionAnchor) {
+        // A topic must be rooted in an ordinary message. COT messages are
+        // progress displays, and are not valid threaded reply targets.
+        const sent = await channel.send(chatId, {
+          markdown: request.sessionAnchor.fallbackMessage,
+        }, { replyTo: sourceSendOpts.replyTo, replyInThread: false });
+        anchorMessageId = sent.messageId;
+        scope = rootTopicScope(chatId, anchorMessageId);
+        sessions.markTopicRoot(scope);
+        const inheritedCwd = workspaces.cwdFor(request.scopeId);
+        if (inheritedCwd) workspaces.setCwd(scope, inheritedCwd);
+        sourceSendOpts = { replyTo: anchorMessageId, replyInThread: true };
+        sendOpts = sourceSendOpts;
+      }
+      cotRun = new RunCot({
+        client: cotClient,
+        mode: () => getCotMessages(controls.cfg),
+        chatId,
+        originMessageId: sourceSendOpts.replyTo,
+        replyInThread: sourceSendOpts.replyInThread,
+        scope,
+        inputPreview: runCot?.inputPreview ?? request.prompt ?? request.message.content,
+        stepName: runCot?.stepName,
+        detail: runCot?.detail,
+        onCreated: runCot?.onCreated,
+      });
       if (request.sessionAnchor) {
         const cotRef = await cotRun.reserveAnchor();
-        if (cotRef) {
+        if (!anchorMessageId && cotRef) {
           anchorMessageId = cotRef.messageId;
-        } else {
+        } else if (!anchorMessageId) {
           const sent = await channel.send(chatId, {
             markdown: request.sessionAnchor.fallbackMessage,
-          }, { replyTo: request.message.messageId, replyInThread: anchorInThread });
+          }, sourceSendOpts);
           anchorMessageId = sent.messageId;
         }
 
-        if (opensTaskTopic) {
-          scope = rootTopicScope(chatId, anchorMessageId);
-          sessions.markTopicRoot(scope);
-          const inheritedCwd = workspaces.cwdFor(request.scopeId);
-          if (inheritedCwd) workspaces.setCwd(scope, inheritedCwd);
-        }
         message = {
           ...request.message,
           messageId: anchorMessageId,
@@ -96,15 +103,18 @@ export function createOnboardOrchestrator(deps: OnboardOrchestratorDeps):
           createTime: Date.now(),
           raw: undefined,
         };
-        sendOpts = { replyTo: anchorMessageId, replyInThread: answerInThread };
+        // Keep final replies and errors on the ordinary source message,
+        // even when a separate COT display was reserved for this run.
+        sendOpts = sourceSendOpts;
       }
 
+      const executionCot = cotRun;
       return await withPendingQueueBlock(pending, scope, async () => {
         const result = await withTrace({ chatId, msgId: message.messageId }, () => execute({
           message,
           scope,
           mode: request.mode,
-          cotRun,
+          cotRun: executionCot,
           runOptions: {
             ...request,
             cot: runCot,
@@ -125,7 +135,7 @@ export function createOnboardOrchestrator(deps: OnboardOrchestratorDeps):
       });
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
-      await cotRun.fail(reason, 'agent-run-failed', { scope });
+      await cotRun?.fail(reason, 'agent-run-failed', { scope });
       return {
         scopeId: scope,
         ...(anchorMessageId ? { anchorMessageId } : {}),

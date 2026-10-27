@@ -177,7 +177,7 @@ When `/onboard` or a guard task lacks information, the bot completes what it can
 - **Message reply mode**: `message card` streams the final reply; `plain text` sends once after the run finishes.
 - **Reply placement**: choose conversation or thread replies independently for DMs and ordinary groups. DMs default to conversation replies; groups default to thread replies. Messages already in a topic stay in that topic, including COT and command replies.
 - **Tool-call display**: controls whether tool blocks appear in the final card / markdown reply.
-- **COT process message**: `off` sends only the final reply; `brief` first sends a COT message with agent progress text and tool summaries; `detailed` also includes tool args and truncated output.
+- **COT process message**: defaults to `brief`, which first sends a COT message with agent progress text and tool summaries; `off` sends only the final reply; `detailed` also includes tool args and truncated output.
 
 When COT is enabled, the bridge splits the process view and final answer into two messages. The COT message is for tracing what the agent did; the final answer is still generated from the agent's raw text, without heuristic bridge-side filtering. If an agent emits final-answer text as ordinary stream text, that text can also appear in the COT process message.
 

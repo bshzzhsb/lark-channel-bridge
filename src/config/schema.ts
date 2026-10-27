@@ -123,8 +123,8 @@ export interface AppPreferences {
   model?: string;
   /**
    * Whether to send a separate Lark COT process message before the final
-   * answer. `brief` mirrors the lightweight tool/progress visibility from
-   * the legacy tool display; `detailed` also includes tool args/output.
+   * answer. Defaults to `brief`, which mirrors the lightweight tool/progress
+   * visibility from the legacy tool display; `detailed` also includes tool args/output.
    * Legacy boolean/string `on` is accepted by the resolver for upgrades.
    */
   cotMessages?: CotMessagesMode | 'on' | 'simple';
@@ -236,6 +236,7 @@ export function getShowToolCalls(cfg: AppConfig): boolean {
 
 export function getCotMessages(cfg: AppConfig): CotMessagesMode {
   const raw = cfg.preferences?.cotMessages;
+  if (raw === undefined) return 'brief';
   if (raw === 'brief' || raw === 'simple') return 'brief';
   if (raw === 'detailed' || raw === 'on') return 'detailed';
   return 'off';
