@@ -1,7 +1,7 @@
 import { mkdir, readdir, readFile, rename, rm, stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
-import { createBootstrapCodexConfig } from '@/cli/profile-bootstrap';
+import { createBootstrapCodexConfig, createBootstrapTraeConfig } from '@/cli/profile-bootstrap';
 import { promptLine } from '@/cli/prompt';
 import {
   ActiveBridgeMigrationConflictError,
@@ -45,13 +45,15 @@ export async function runMigrate(opts: MigrateOptions): Promise<void> {
   const configPath = opts.config ?? paths.configFile;
   await migrateLegacyPaths();
   await migrateConfigShape(configPath);
-  const agentKind = agentKindFromString(opts.agent) ?? (opts.profile === 'codex' ? 'codex' : undefined);
+  const agentKind = agentKindFromString(opts.agent) ?? (opts.profile === 'trae' ? 'trae' : opts.profile === 'codex' ? 'codex' : undefined);
   const needsV2Migration = await hasLegacyProfileConfig(configPath);
   const result = await migrateProfileV2WithActiveBridgePrompt({
     rootDir: dirname(configPath),
     configFile: configPath,
     profile: opts.profile,
     ...(agentKind ? { agentKind } : {}),
+    ...(needsV2Migration && agentKind === 'trae'
+      ? { trae: await createBootstrapTraeConfig(undefined) } : {}),
     ...(needsV2Migration && agentKind === 'codex'
       ? { codex: await createBootstrapCodexConfig(undefined) }
       : {}),

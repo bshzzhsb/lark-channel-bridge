@@ -17,6 +17,7 @@ export type CodexThreadSourceKind =
   | 'vscode'
   | 'exec'
   | 'appServer'
+  | 'acp'
   | 'unknown';
 
 export interface CodexThreadHistoryEntry {
@@ -32,6 +33,8 @@ export interface CodexThreadHistoryEntry {
 
 export interface ListCodexThreadHistoryOptions {
   binary: string;
+  /** Selects diagnostics and environment handling for compatible TRAE transport. */
+  agentId?: 'codex' | 'trae';
   cwd: string;
   limit: number;
   profileStateDir: string;
@@ -70,10 +73,12 @@ const DEFAULT_SOURCE_KINDS: readonly CodexThreadSourceKind[] = [
 export async function listCodexThreadHistory(
   options: ListCodexThreadHistoryOptions,
 ): Promise<CodexThreadHistoryEntry[]> {
+  const agentName = options.agentId === 'trae' ? 'traecli' : 'codex';
   const child = spawnCodexAppServer(options);
   const timeoutMs = options.timeoutMs ?? DEFAULT_HISTORY_TIMEOUT_MS;
   const stderrChunks: Buffer[] = [];
   let settled = false;
+  let initialized = false;
 
   const result = await new Promise<CodexThreadHistoryEntry[]>((resolve, reject) => {
     const rl = createInterface({ input: child.stdout, crlfDelay: Infinity });
@@ -101,7 +106,7 @@ export async function listCodexThreadHistory(
     };
 
     timer = setTimeout(() => {
-      reject(new CodexHistoryError('timeout', `codex history query timed out after ${timeoutMs}ms`));
+      reject(new CodexHistoryError('timeout', `${agentName} history query timed out after ${timeoutMs}ms`));
       cleanup({ kill: true });
     }, timeoutMs);
 
@@ -112,6 +117,7 @@ export async function listCodexThreadHistory(
     });
 
     rl.on('line', (line) => {
+      if (settled) return;
       const trimmed = line.trim();
       if (!trimmed) return;
       let msg: unknown;
@@ -121,25 +127,40 @@ export async function listCodexThreadHistory(
         return;
       }
       const response = recordValue(msg);
-      if (!response || response.id !== 2) return;
+      if (!response) return;
+      if (response.id === 1 && !initialized) {
+        if (response.error || !recordValue(response.result)) {
+          fail(new CodexHistoryError('app-server-error', `${agentName} app-server initialization failed`));
+          return;
+        }
+        initialized = true;
+        child.stdin.write(`${JSON.stringify({ method: 'initialized' })}\n${JSON.stringify(listRequest(options))}\n`, (err) => {
+          if (err) fail(err);
+        });
+        return;
+      }
+      if (response.id !== 2 || !initialized) return;
       if (response.error) {
         const err = recordValue(response.error);
         reject(
           new CodexHistoryError(
             'app-server-error',
-            typeof err?.message === 'string' ? err.message : 'codex app-server rejected history query',
+            typeof err?.message === 'string' ? err.message : `${agentName} app-server rejected history query`,
           ),
         );
         cleanup({ kill: true });
         return;
       }
-      const parsed = parseThreadListResponse(response.result);
+      const parsed = parseThreadListResponse(response.result, agentName);
       if (!parsed.ok) {
         reject(parsed.error);
         cleanup({ kill: true });
         return;
       }
-      resolve(parsed.entries);
+      resolve(parsed.entries
+        .filter((entry) => entry.cwd === options.cwd)
+        .sort((a, b) => b.updatedAtMs - a.updatedAtMs)
+        .slice(0, options.limit));
       cleanup({ kill: true });
     });
 
@@ -149,7 +170,7 @@ export async function listCodexThreadHistory(
       reject(
         new CodexHistoryError(
           'spawn-failed',
-          `codex app-server exited before history response: ${code ?? 'signal'}${stderr ? `: ${stderr}` : ''}`,
+          `${agentName} app-server exited before history response: ${code ?? 'signal'}${stderr ? `: ${stderr}` : ''}`,
         ),
       );
       cleanup({ kill: true });
@@ -157,7 +178,7 @@ export async function listCodexThreadHistory(
 
     try {
       child.stdin.write(
-        `${JSON.stringify(initializeRequest())}\n${JSON.stringify(listRequest(options))}\n`,
+        `${JSON.stringify(initializeRequest())}\n`,
         'utf8',
         (err?: Error | null) => {
           if (err) fail(err);
@@ -174,10 +195,12 @@ export async function listCodexThreadHistory(
 
 function spawnCodexAppServer(options: ListCodexThreadHistoryOptions): CodexAppServerChild {
   const envOverrides: NodeJS.ProcessEnv = {};
-  if (options.codexHome) {
-    envOverrides.CODEX_HOME = options.codexHome;
-  } else if (options.inheritCodexHome === false) {
-    envOverrides.CODEX_HOME = join(options.profileStateDir, 'codex-home');
+  if (options.agentId !== 'trae') {
+    if (options.codexHome) {
+      envOverrides.CODEX_HOME = options.codexHome;
+    } else if (options.inheritCodexHome === false) {
+      envOverrides.CODEX_HOME = join(options.profileStateDir, 'codex-home');
+    }
   }
 
   return spawnProcess(options.binary, ['app-server', '--listen', 'stdio://'], {
@@ -219,12 +242,13 @@ function listRequest(options: ListCodexThreadHistoryOptions) {
 
 function parseThreadListResponse(
   input: unknown,
+  agentName: string,
 ): { ok: true; entries: CodexThreadHistoryEntry[] } | { ok: false; error: CodexHistoryError } {
   const raw = recordValue(input);
   if (!raw || !Array.isArray(raw.data)) {
     return {
       ok: false,
-      error: new CodexHistoryError('malformed-response', 'codex app-server returned malformed thread/list response'),
+      error: new CodexHistoryError('malformed-response', `${agentName} app-server returned malformed thread/list response`),
     };
   }
   return {

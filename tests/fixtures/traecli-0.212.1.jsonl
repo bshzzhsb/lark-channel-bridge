@@ -1,0 +1,8 @@
+{"type":"thread.started","thread_id":"trae-fixture-thread"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"The user wants me to run exactly one read-only shell command: `printf BRIDGE_TRAE_TOOL_OK`. Then reply with the marker from my previous reply (BRIDGE_TRAE_OK) followed by the command output."}}
+{"type":"item.started","item":{"id":"item_1","type":"command_execution","command":"printf BRIDGE_TRAE_TOOL_OK","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_1","type":"command_execution","command":"printf BRIDGE_TRAE_TOOL_OK","aggregated_output":"BRIDGE_TRAE_TOOL_OK","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_2","type":"reasoning","text":"The marker from my previous reply is BRIDGE_TRAE_OK. The command output is BRIDGE_TRAE_TOOL_OK."}}
+{"type":"item.completed","item":{"id":"item_3","type":"agent_message","text":"BRIDGE_TRAE_OK BRIDGE_TRAE_TOOL_OK"}}
+{"type":"turn.completed","usage":{"input_tokens":32423,"cache_creation_input_tokens":0,"cached_input_tokens":28072,"output_tokens":186,"reasoning_output_tokens":107}}

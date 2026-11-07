@@ -2,6 +2,7 @@ import { mkdir, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { AgentPreflightError } from '@/agent/preflight';
+import { checkTraeAvailability } from '@/agent/trae/preflight';
 import { type AgentKind, createDefaultProfileConfig, type ProfileConfig } from '@/config/profile-schema';
 import type { AppConfig } from '@/config/schema';
 import { resolveWorkingDirectory } from '@/policy/workspace';
@@ -16,6 +17,7 @@ export interface BootstrapProfileInput {
   workspace?: string;
   defaultWorkspace?: string;
   codexBinaryPath?: string;
+  traeBinaryPath?: string;
   profileDir?: string;
 }
 
@@ -31,12 +33,15 @@ export async function createBootstrapProfileConfig(
     input.agentKind === 'codex'
       ? await createBootstrapCodexConfig(input.codexBinaryPath)
       : undefined;
+  const trae = input.agentKind === 'trae'
+    ? await createBootstrapTraeConfig(input.traeBinaryPath) : undefined;
   const profile = createDefaultProfileConfig({
     agentKind: input.agentKind,
     accounts: input.accounts,
     preferences: input.preferences,
     secrets: input.secrets,
     ...(codex ? { codex } : {}),
+    ...(trae ? { trae } : {}),
   });
   if (workspace) {
     profile.workspaces = {
@@ -86,4 +91,21 @@ function codexBootstrapBinaryErrorCode(errno: string | undefined) {
     return 'agent-binary-resolve-failed';
   }
   return 'agent-binary-not-found';
+}
+
+export async function createBootstrapTraeConfig(binaryPath: string | undefined) {
+  const command = binaryPath ?? process.env.LARK_CHANNEL_TRAE_BIN ?? 'traecli';
+  let resolvedBinary: string;
+  try {
+    resolvedBinary = await resolveExecutablePath(command);
+  } catch (err) {
+    const errno = (err as NodeJS.ErrnoException).code;
+    throw new AgentPreflightError({
+      code: codexBootstrapBinaryErrorCode(errno),
+      agentId: 'trae', agentName: 'TRAE CLI', command, binaryPath: command, errno,
+    });
+  }
+  const availability = await checkTraeAvailability(resolvedBinary);
+  if (!availability.ok) throw availability.error;
+  return { binaryPath: resolvedBinary };
 }

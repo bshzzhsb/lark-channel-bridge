@@ -14,7 +14,7 @@ import type {
 } from './schema';
 import { isReplyPlacement } from './schema';
 
-export type AgentKind = 'claude' | 'codex';
+export type AgentKind = 'claude' | 'codex' | 'trae';
 export type SandboxMode = CodexSandboxMode;
 export type { AccessMode, PermissionConfig, PermissionSource };
 
@@ -37,6 +37,10 @@ export interface SandboxConfig {
   max?: SandboxMode;
   defaultMode: SandboxMode;
   maxMode: SandboxMode;
+}
+
+export interface TraeConfig {
+  binaryPath: string;
 }
 
 export interface CodexConfig {
@@ -161,6 +165,7 @@ export interface ProfileConfig {
   permissions: PermissionConfig;
   permissionSource?: PermissionSource;
   codex?: CodexConfig;
+  trae?: TraeConfig;
   attachments: AttachmentConfig;
   comments: CommentConfig;
   /** In-meeting agent settings. See {@link MeetingConfig}. */
@@ -205,6 +210,7 @@ export interface CreateDefaultProfileConfigInput {
   sandbox?: Partial<SandboxConfig>;
   permissions?: Partial<PermissionConfig>;
   codex?: CodexConfig;
+  trae?: TraeConfig;
   secrets?: SecretsConfig;
 }
 
@@ -240,6 +246,7 @@ export function normalizeProfileConfig(input: unknown): ProfileConfig {
     sandbox?: Partial<SandboxConfig>;
     permissions?: Partial<PermissionConfig>;
     codex?: CodexConfig & { flags?: unknown };
+    trae?: TraeConfig;
     attachments?: Partial<AttachmentConfig>;
     comments?: unknown;
     meeting?: unknown;
@@ -249,12 +256,16 @@ export function normalizeProfileConfig(input: unknown): ProfileConfig {
   if (raw.schemaVersion !== 2) {
     throw new Error('profile schemaVersion must be 2');
   }
-  if (raw.agentKind !== 'claude' && raw.agentKind !== 'codex') {
-    throw new Error('agentKind must be claude or codex');
+  if (raw.agentKind !== 'claude' && raw.agentKind !== 'codex' && raw.agentKind !== 'trae') {
+    throw new Error('agentKind must be claude, codex or trae');
   }
   const accounts = normalizeAccounts(raw.accounts);
   if (raw.agentKind === 'codex' && !raw.codex) {
     throw new Error('codex profile requires codex configuration');
+  }
+
+  if (raw.agentKind === 'trae' && !raw.trae) {
+    throw new Error('trae profile requires trae configuration');
   }
 
   const preferences = normalizePreferences(raw.preferences);
@@ -285,6 +296,7 @@ export function normalizeProfileConfig(input: unknown): ProfileConfig {
     permissions,
     permissionSource,
     ...(raw.codex ? { codex: normalizeCodex(raw.codex) } : {}),
+    ...(raw.trae ? { trae: normalizeTrae(raw.trae) } : {}),
     attachments: {
       maxCount: numberOr(raw.attachments?.maxCount, 10),
       maxBytes: numberOr(raw.attachments?.maxBytes, 100 * 1024 * 1024),
@@ -510,4 +522,11 @@ function numberOr(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0
     ? value
     : fallback;
+}
+
+function normalizeTrae(input: TraeConfig): TraeConfig {
+  if (!input || typeof input !== 'object' || typeof input.binaryPath !== 'string' || !input.binaryPath.trim()) {
+    throw new Error('trae.binaryPath must be a non-empty string');
+  }
+  return { binaryPath: input.binaryPath.trim() };
 }

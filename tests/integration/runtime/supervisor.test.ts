@@ -12,6 +12,8 @@ import {
 } from '@/config/profile-store';
 import { Supervisor } from '@/runtime/supervisor';
 
+import { writeFakeTrae } from '../../helpers/fake-trae';
+
 const roots: string[] = [];
 const started: string[] = [];
 const disconnected: string[] = [];
@@ -70,6 +72,22 @@ describe('Supervisor', () => {
     const list = sup.list();
     expect(list).toHaveLength(1);
     expect(list[0]).toMatchObject({ profile: 'claude', online: true, pid: process.pid, botName: 'bot-claude' });
+  });
+
+  it('starts and stops a TRAE profile alongside Claude with an independent registry identity', async () => {
+    const fake = await writeFakeTrae(root);
+    const configPath = join(root, 'config.json');
+    const config = (await loadRootConfig(configPath))!;
+    config.profiles.trae = createDefaultProfileConfig({
+      agentKind: 'trae', accounts: { app: app('cli_trae') }, trae: { binaryPath: fake.binary },
+    });
+    await saveRootConfig(config, configPath);
+    await sup.startProfile('claude');
+    await sup.startProfile('trae');
+    expect(sup.list().find((s) => s.profile === 'trae')).toMatchObject({ agentKind: 'trae', online: true });
+    await sup.stopProfile('trae');
+    expect(sup.isOnline('trae')).toBe(false);
+    expect(sup.isOnline('claude')).toBe(true);
   });
 
   it('hosts multiple profiles at once', async () => {

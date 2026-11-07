@@ -10,6 +10,7 @@ export interface FingerprintInputV2 {
   resourceScopeDigest: string;
   attachmentPolicyShapeDigest: string;
   codexHome?: string;
+  traeStateRoot?: string;
   inheritCodexHome: boolean;
 }
 
@@ -34,6 +35,7 @@ export interface AttachmentPolicyShapeInput {
 
 export function policyFingerprint(input: FingerprintInputV2): string {
   return digestCanonical({
+    ...(input.traeStateRoot ? { traeStateRoot: input.traeStateRoot } : {}),
     version: 2,
     cwdRealpath: input.cwdRealpath,
     sandbox: input.sandbox,

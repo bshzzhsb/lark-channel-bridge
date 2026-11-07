@@ -5,17 +5,10 @@ import { paths } from '@/config/paths';
 import { loadRootConfig, readActiveProfile } from '@/config/profile-store';
 import { isComplete } from '@/config/schema';
 import { daemonStderrPath, daemonStdoutPath, SUPERVISOR_SERVICE_ID } from '@/daemon/paths';
-import {
-  getServiceAdapter,
-  type ServiceAdapter,
-  type ServiceResultLike,
-} from '@/daemon/service-adapter';
+import { getServiceAdapter, type ServiceAdapter, type ServiceResultLike } from '@/daemon/service-adapter';
 import { checkRuntimeLock, type RuntimeLockMeta } from '@/runtime/locks';
-import {
-  materializeEnvSecretForService,
-  resolveProfileRuntime,
-} from '@/runtime/profile-runtime';
-import { type ProcessEntry,readAndPrune } from '@/runtime/registry';
+import { materializeEnvSecretForService, resolveProfileRuntime } from '@/runtime/profile-runtime';
+import { type ProcessEntry, readAndPrune } from '@/runtime/registry';
 
 import { promptAndStopActiveBridgeMigrationConflict } from './migrate';
 import { stopProcessEntry, type StopProcessEntryResult } from './ps';
@@ -85,9 +78,7 @@ async function lookupProfileEntry(profile: string): Promise<ProcessEntry | undef
   const runtime = await maybeResolveProfileRuntime(profile);
   const appId = runtime?.cfg.accounts?.app?.id;
   if (!appId) return undefined;
-  return readAndPrune().find(
-    (e) => e.appId === appId && e.profileName === profile && Boolean(e.botName),
-  );
+  return readAndPrune().find((e) => e.appId === appId && e.profileName === profile && Boolean(e.botName));
 }
 
 /**
@@ -97,9 +88,7 @@ async function lookupProfileEntry(profile: string): Promise<ProcessEntry | undef
 function requireAdapter(cmdName: string, serviceId: string, runArgs?: string[]): ServiceAdapter {
   const adapter = getServiceAdapter(serviceId, runArgs);
   if (!adapter) {
-    console.error(
-      `${cmdName}: 当前系统不支持后台运行。`,
-    );
+    console.error(`${cmdName}: 当前系统不支持后台运行。`);
     console.error('  目前支持: macOS (launchd) / Linux (systemd) / Windows (Task Scheduler)');
     process.exit(1);
   }
@@ -150,7 +139,10 @@ function printServiceFailure(verb: 'started' | 'restarted', stderr: string): voi
 async function ensureBridgeConfigured(
   opts: ServiceStartOptions,
 ): Promise<
-  Pick<Awaited<ReturnType<typeof resolveProfileRuntime>>, 'profile' | 'cfg' | 'profileConfig' | 'appPaths' | 'configPath'>
+  Pick<
+    Awaited<ReturnType<typeof resolveProfileRuntime>>,
+    'profile' | 'cfg' | 'profileConfig' | 'appPaths' | 'configPath'
+  >
 > {
   const { cfg, profile, profileConfig, appPaths, configPath } = await resolveProfileRuntime({
     profile: opts.profile,
@@ -261,11 +253,7 @@ async function waitForServiceConnect(
   while (Date.now() < deadline) {
     const live = readAndPrune();
     const fresh = live.find(
-      (e) =>
-        e.appId === appId &&
-        e.profileName === profile &&
-        !beforePids.has(e.pid) &&
-        Boolean(e.botName),
+      (e) => e.appId === appId && e.profileName === profile && !beforePids.has(e.pid) && Boolean(e.botName),
     );
     if (fresh) return fresh;
     await new Promise((r) => setTimeout(r, 500));
@@ -490,11 +478,7 @@ export async function runServiceStop(opts: ServiceProfileOptions = {}): Promise<
  */
 export async function runServiceRestart(opts: ServiceProfileOptions = {}): Promise<void> {
   const { serviceId, webUi } = await resolveServiceTarget(opts);
-  const adapter = requireAdapter(
-    'restart',
-    serviceId,
-    webUi ? WEB_UI_RUN_ARGS : classicRunArgs(serviceId),
-  );
+  const adapter = requireAdapter('restart', serviceId, webUi ? WEB_UI_RUN_ARGS : classicRunArgs(serviceId));
   if (!adapter.fileExists()) {
     console.error(
       webUi
@@ -607,7 +591,11 @@ async function maybeResolveProfileRuntime(
 }
 
 function agentDisplay(agentKind: ProcessEntry['agentKind']): { id: string; displayName: string } {
-  return agentKind === 'codex'
-    ? { id: 'codex', displayName: 'Codex CLI' }
-    : { id: 'claude', displayName: 'Claude Code' };
+  if (agentKind === 'trae') {
+    return { id: 'trae', displayName: 'TRAE CLI' };
+  } else if (agentKind === 'codex') {
+    return { id: 'codex', displayName: 'Codex CLI' };
+  } else {
+    return { id: 'claude', displayName: 'Claude Code' };
+  }
 }

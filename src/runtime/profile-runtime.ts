@@ -8,6 +8,7 @@ import { type DetectedAgent,detectInstalledAgents } from '@/cli/agent-detection'
 import {
   createBootstrapCodexConfig,
   createBootstrapProfileConfig,
+  createBootstrapTraeConfig,
   resolveBootstrapWorkspace,
 } from '@/cli/profile-bootstrap';
 import { promptPassword } from '@/cli/prompt';
@@ -92,6 +93,9 @@ export function createRuntimeProfileConfig(
     ...(input.agentKind === 'codex'
       ? { codex: input.codex ?? { binaryPath: process.env.LARK_CHANNEL_CODEX_BIN ?? 'codex' } }
       : {}),
+    ...(input.agentKind === 'trae'
+      ? { trae: input.trae ?? { binaryPath: process.env.LARK_CHANNEL_TRAE_BIN ?? 'traecli' } }
+      : {}),
   });
 }
 
@@ -110,7 +114,7 @@ export async function resolveProfileRuntime(
   if (!profile && opts.allowBootstrap) {
     const detected = await detectInstalledAgents();
     if (detected.length === 0) {
-      throw new Error('no supported local agent found; install claude or codex first');
+      throw new Error('no supported local agent found; install claude, codex or traecli first');
     }
     if (detected.length > 1) {
       const selected = await selectDetectedAgent(detected, opts.selectAgent);
@@ -137,6 +141,8 @@ export async function resolveProfileRuntime(
     configFile: configPath,
     workspace: opts.workspace,
     ...(migrationAgent ? { agentKind: migrationAgent } : {}),
+    ...(needsMigration && migrationAgent === 'trae'
+      ? { trae: await createBootstrapTraeConfig(undefined) } : {}),
     ...(needsMigration && migrationAgent === 'codex'
       ? { codex: await createBootstrapCodexConfig(undefined) }
       : {}),
@@ -397,7 +403,7 @@ function resolveBootstrapAgent(
   requestedAgent: AgentKind | undefined,
   profile: string | undefined,
 ): AgentKind | undefined {
-  return requestedAgent ?? (profile === 'codex' ? 'codex' : undefined);
+  return requestedAgent ?? (profile === 'trae' ? 'trae' : profile === 'codex' ? 'codex' : undefined);
 }
 
 async function hasLegacyConfig(configPath: string): Promise<boolean> {
@@ -570,7 +576,7 @@ function formatAmbiguousAgentSelectionError(
 ): string {
   const lines = detected.map((agent) => `  - ${agent.kind}: ${agent.binaryPath}`);
   return [
-    '检测到多个本地 agent，请使用 --agent <claude|codex> 指定要初始化哪一个。',
+    '检测到多个本地 agent，请使用 --agent <claude|codex|trae> 指定要初始化哪一个。',
     '已检测到：',
     ...lines,
   ].join('\n');
@@ -615,7 +621,7 @@ class UserCancelledError extends Error {
 }
 
 function displayAgentKind(kind: AgentKind): string {
-  return kind === 'claude' ? 'Claude Code' : 'Codex CLI';
+  return kind === 'trae' ? 'TRAE CLI' : kind === 'claude' ? 'Claude Code' : 'Codex CLI';
 }
 
 async function maybeMigrateRootPlaintextSecret(

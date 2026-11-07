@@ -78,6 +78,7 @@ describe('Codex thread history provider', () => {
     expect(record.env.CODEX_HOME).toBe('/outer/codex-home');
     expect(record.requests).toMatchObject([
       { method: 'initialize' },
+      { method: 'initialized' },
       {
         method: 'thread/list',
         params: {

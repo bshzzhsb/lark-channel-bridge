@@ -134,6 +134,7 @@ export function OnboardWizard({ onCreated }: { onCreated: (profile: string) => v
             <SelectContent>
               <SelectItem value="claude">Claude Code</SelectItem>
               <SelectItem value="codex">Codex</SelectItem>
+              <SelectItem value="trae">TRAE CLI</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -186,7 +187,7 @@ export function OnboardWizard({ onCreated }: { onCreated: (profile: string) => v
         )}
       </div>
       {detected.length === 0 && (
-        <p className="text-center text-xs text-muted-foreground">未检测到已安装的 agent，请确保 claude 或 codex 已安装。</p>
+        <p className="text-center text-xs text-muted-foreground">未检测到已安装的 agent，请确保 claude、codex 或 traecli 已安装。</p>
       )}
       <p className="text-center text-xs text-muted-foreground">扫码人会成为应用 owner，自动豁免访问控制。</p>
     </div>

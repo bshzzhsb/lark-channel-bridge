@@ -3,8 +3,8 @@ import type { ProfileConfig } from '@/config/profile-schema';
 
 import { BRIDGE_SYSTEM_PROMPT } from './bridge-system-prompt';
 
-export type AgentCapabilityId = 'claude' | 'codex';
-export type AgentSessionKind = 'claude-session' | 'codex-thread';
+export type AgentCapabilityId = 'claude' | 'codex' | 'trae';
+export type AgentSessionKind = 'claude-session' | 'codex-thread' | 'trae-thread';
 export type PromptInjectionMode = 'append-system-prompt' | 'stdin-prefix';
 
 export interface AgentCapability {
@@ -56,4 +56,20 @@ export function codexCapability(profile: Pick<ProfileConfig, 'permissions'>): Ag
       maxAccess,
     },
   };
+}
+
+export function traeCapability(profile: Pick<ProfileConfig, 'permissions'>): AgentCapability {
+  return { ...codexCapability(profile), agentId: 'trae', sessionKind: 'trae-thread', supportsNativeHistory: true };
+}
+
+export function capabilityForProfile(profile: ProfileConfig): AgentCapability {
+  switch (profile.agentKind) {
+    case 'claude': return claudeCapability(profile);
+    case 'codex': return codexCapability(profile);
+    case 'trae': return traeCapability(profile);
+  }
+}
+
+export function usesThreadSessions(agentId: AgentCapabilityId): boolean {
+  return agentId === 'codex' || agentId === 'trae';
 }

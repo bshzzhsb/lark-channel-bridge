@@ -1,3 +1,6 @@
+import { homedir } from 'node:os';
+import { join, resolve } from 'node:path';
+
 import type { AgentCapability } from '@/agent/capability';
 import {
   type AccessMode,
@@ -145,6 +148,9 @@ export function evaluateRunPolicy(input: RunPolicyInput): RunPolicyResult {
       accessPolicyDigest: accessDigest,
       resourceScopeDigest: resourceDigest,
       attachmentPolicyShapeDigest: attachmentDigest,
+      ...(input.capability.agentId === 'trae' ? {
+        traeStateRoot: resolve(process.env.TRAECLI_HOME ?? join(process.env.TRAE_HOME ?? join(homedir(), '.trae'), 'cli')),
+      } : {}),
       codexHome: input.codexHome,
       inheritCodexHome: input.inheritCodexHome ?? false,
     }),
