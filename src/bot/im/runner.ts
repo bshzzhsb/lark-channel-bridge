@@ -1,6 +1,6 @@
 import type { LarkChannel } from '@larksuite/channel';
 
-import { claudeCapability, codexCapability } from '@/agent/capability';
+import { capabilityForProfile } from '@/agent/capability';
 import type { AgentEvent } from '@/agent/types';
 import { replyOptions } from '@/bot/reply-placement';
 import { deliverRunReply } from '@/bot/run/reply';
@@ -112,10 +112,7 @@ async function prepareImRun(
     ...(policyThreadId(scope, chatId, threadId)
       ? { threadId: policyThreadId(scope, chatId, threadId) } : {}),
   };
-  const profileCapability =
-    controls.profileConfig.agentKind === 'codex'
-      ? codexCapability(controls.profileConfig)
-      : claudeCapability(controls.profileConfig);
+  const profileCapability = capabilityForProfile(controls.profileConfig);
   const capability = runOptions?.access === 'read-only'
     ? { ...profileCapability, permissions: { ...profileCapability.permissions, maxAccess: 'read-only' as const } }
     : profileCapability;

@@ -1,5 +1,6 @@
 import type { LarkChannel, NormalizedMessage } from '@larksuite/channel';
 
+import { capabilityForProfile } from '@/agent/capability';
 import type { AgentEvent } from '@/agent/types';
 import { finalAnswerOnlyState } from '@/bot/cot';
 import type { ImRunRequest, ImRunResult } from '@/bot/im/types';
@@ -68,7 +69,7 @@ export async function deliverRunReply(input: ReplyInput): Promise<ImRunResult | 
     } else {
       const finalState = await reply.consume();
 
-      await reply.sendFinal(reply.isCodex()
+      await reply.sendFinal(reply.isThreadAgent()
         ? finalAnswerOnlyState(reply.project(finalState)) : reply.project(finalState));
     }
   } catch (err) {
@@ -126,7 +127,7 @@ function createReplySession(input: ReplyInput) {
     execution: flow.execution, silent: runOptions?.reply === 'silent',
     requiresFinalReply: completionMentions.length > 0
       || Boolean(runOptions?.resolveCompletionMentions || runOptions?.shouldSendReply),
-    isCodex: () => controls.profileConfig.agentKind === 'codex',
+    isThreadAgent: () => capabilityForProfile(controls.profileConfig).promptInjection === 'stdin-prefix',
     consume, project, sendFinal, resultFor,
   };
 }
@@ -199,7 +200,7 @@ async function deliverProgressReply(reply: ReplySession, mode: 'card' | 'markdow
     await producer.update(projected);
   });
   const fallback = async (state: RunState) => {
-    if (reply.isCodex()) return;
+    if (reply.isThreadAgent()) return;
 
     const projected = reply.project(state);
 
@@ -218,7 +219,7 @@ async function deliverProgressReply(reply: ReplySession, mode: 'card' | 'markdow
       mode, progress, renderDone, producerStarted: producer.started, fallback,
     });
   } catch (err) {
-    if (!reply.isCodex()) throw err;
+    if (!reply.isThreadAgent()) throw err;
 
     log.fail('stream', err, { mode, step: 'progress-stream' });
   }
@@ -227,7 +228,7 @@ async function deliverProgressReply(reply: ReplySession, mode: 'card' | 'markdow
 
   await recallIfEmptyStreamedReply(reply.channel, progress, finalState, reply.scope);
 
-  if (reply.isCodex()) await reply.sendFinal(finalReplyState(progress, finalState));
+  if (reply.isThreadAgent()) await reply.sendFinal(finalReplyState(progress, finalState));
 }
 
 interface ProducerSource {

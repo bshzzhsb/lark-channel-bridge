@@ -1,8 +1,9 @@
 import { spawnProcess } from '@/platform/spawn';
 
-export type LocalAgentId = 'claude' | 'codex';
+export type LocalAgentId = 'claude' | 'codex' | 'trae';
 
 export type AgentPreflightErrorCode =
+  | 'agent-capability-unsupported'
   | 'agent-binary-not-found'
   | 'agent-binary-not-executable'
   | 'agent-binary-resolve-failed'
@@ -44,6 +45,7 @@ export interface CheckAgentVersionInput {
   realpath?: string;
   args?: readonly string[];
   timeoutMs?: number;
+  fullOutput?: boolean;
 }
 
 export class AgentPreflightError extends Error {
@@ -131,10 +133,10 @@ export async function checkAgentVersion(input: CheckAgentVersionInput): Promise<
     }, timeoutMs);
 
     child.stdout?.on('data', (chunk: Buffer) => {
-      stdout += chunk.toString('utf8');
+      stdout = (stdout + chunk.toString('utf8')).slice(0, 65536);
     });
     child.stderr?.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString('utf8');
+      stderr = (stderr + chunk.toString('utf8')).slice(0, 65536);
     });
     child.once('error', (err: NodeJS.ErrnoException) => {
       finish(() =>
@@ -183,7 +185,7 @@ export async function checkAgentVersion(input: CheckAgentVersionInput): Promise<
           );
           return;
         }
-        resolve(version);
+        resolve(input.fullOutput ? (stdout.trim() || stderr.trim()) : version);
       });
     });
   });
@@ -196,6 +198,8 @@ export function formatAgentPreflightError(err: AgentPreflightError): string {
 export function formatAgentPreflightDiagnostic(diagnostic: AgentPreflightDiagnostic): string {
   const command = commandForDisplay(diagnostic);
   switch (diagnostic.code) {
+    case 'agent-capability-unsupported':
+      return '本地 TRAE CLI 不支持 exec --json / exec resume。请升级到 TRAE CLI 2.0，并确认 traecli 未指向旧 CoCo。';
     case 'agent-binary-not-found':
       return [
         `✗ 未找到本地 ${diagnostic.agentName}。`,
@@ -279,7 +283,7 @@ export function isAgentPreflightDiagnostic(input: unknown): input is AgentPrefli
   return (
     typeof raw.code === 'string' &&
     raw.code.startsWith('agent-') &&
-    (raw.agentId === 'claude' || raw.agentId === 'codex') &&
+    (raw.agentId === 'claude' || raw.agentId === 'codex' || raw.agentId === 'trae') &&
     typeof raw.agentName === 'string' &&
     typeof raw.command === 'string'
   );

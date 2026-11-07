@@ -18,6 +18,7 @@ import {
   type CodexConfig,
   createDefaultProfileConfig,
   type RootConfig,
+  type TraeConfig,
 } from './profile-schema';
 import { markPermissionDefaultsMigration, saveRootConfig } from './profile-store';
 import type { AppConfig } from './schema';
@@ -29,6 +30,7 @@ export interface MigrateV2Options {
   workspace?: string;
   agentKind?: AgentKind;
   codex?: CodexConfig;
+  trae?: TraeConfig;
 }
 
 export interface MigrateV2Result {
@@ -131,6 +133,7 @@ export async function migrateV1ToV2(opts: MigrateV2Options = {}): Promise<Migrat
       requireMentionInGroup: legacy.preferences?.requireMentionInGroup,
     },
     ...(agentKind === 'codex' && opts.codex ? { codex: opts.codex } : {}),
+    ...(agentKind === 'trae' && opts.trae ? { trae: opts.trae } : {}),
   });
   if (legacyDefaultWorkspace) {
     profileConfig.workspaces = {
@@ -202,7 +205,7 @@ function activeProcessFromRegistryEntry(entry: RegistryEntry): ActiveBridgeMigra
   if (typeof entry.appId === 'string') active.appId = entry.appId;
   if (typeof entry.tenant === 'string') active.tenant = entry.tenant;
   if (typeof entry.profileName === 'string') active.profileName = entry.profileName;
-  if (entry.agentKind === 'claude' || entry.agentKind === 'codex') active.agentKind = entry.agentKind;
+  if (entry.agentKind === 'claude' || entry.agentKind === 'codex' || entry.agentKind === 'trae') active.agentKind = entry.agentKind;
   if (typeof entry.configPath === 'string') active.configPath = entry.configPath;
   if (typeof entry.startedAt === 'string') active.startedAt = entry.startedAt;
   if (typeof entry.version === 'string') active.version = entry.version;

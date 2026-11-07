@@ -16,6 +16,7 @@ import { loadRootConfig } from '@/config/profile-store';
 import { secretKeyForApp } from '@/config/schema';
 
 import { writeVersionExecutable } from '../../helpers/fake-executable';
+import { writeFakeTrae } from '../../helpers/fake-trae';
 
 const auth = vi.hoisted(() => ({
   validateAppCredentials: vi.fn(async () => ({ ok: true, botName: 'Claude Regression' })),
@@ -29,6 +30,7 @@ const roots: string[] = [];
 
 afterEach(async () => {
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
@@ -104,6 +106,24 @@ describe('profile create command', () => {
       defaultMode: 'danger-full-access',
       maxMode: 'danger-full-access',
     });
+  });
+
+  it('creates a TRAE profile from the CLI without changing the active Claude profile', async () => {
+    const root = await makeRoot();
+    await writeProfiles(root, 'claude', ['claude']);
+    const fake = await writeFakeTrae(root);
+    vi.stubEnv('LARK_CHANNEL_TRAE_BIN', fake.binary);
+    await runProfileCreate('trae-dev', {
+      rootDir: root, agent: 'trae', workspace: root,
+      appId: 'cli_trae_dev', appSecret: 'trae-test-secret', tenant: 'feishu',
+    });
+    const saved = (await loadRootConfig(join(root, 'config.json')))!;
+    expect(saved.activeProfile).toBe('claude');
+    expect(saved.profiles['trae-dev']).toMatchObject({
+      agentKind: 'trae', trae: { binaryPath: fake.binary },
+    });
+    expect(saved.profiles['trae-dev']?.codex).toBeUndefined();
+    expect(await readFile(join(root, 'config.json'), 'utf8')).not.toContain('trae-test-secret');
   });
 
   it('refuses to overwrite an existing profile', async () => {

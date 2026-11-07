@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { join } from 'node:path';
 
-import { claudeCapability, codexCapability } from '@/agent/capability.js';
+import { capabilityForProfile } from '@/agent/capability.js';
 import { ActiveRuns } from '@/bot/active-runs.js';
 import type { ChatModeCache } from '@/bot/chat-mode-cache.js';
 import { PendingQueue } from '@/bot/pending-queue.js';
@@ -112,8 +112,8 @@ describe('agent-aware resume commands', () => {
     expect(lastMarkdown(h.channel)).toContain('已完成');
   });
 
-  it('accepts the current Codex thread without writing it into legacy SessionStore', async () => {
-    const h = await createHarness('codex');
+  it.each(['codex', 'trae'] as const)('accepts the current %s thread without writing it into legacy SessionStore', async (kind) => {
+    const h = await createHarness(kind);
     h.catalog.upsertActive({ ...h.identity, threadId: 'thread-current', now: 1000 });
 
     await expect(h.run('/resume')).resolves.toBe(true);
@@ -186,8 +186,8 @@ describe('agent-aware resume commands', () => {
     expect(lastContentString(h.channel)).toContain('此 cwd 下没有历史会话');
   });
 
-  it('lists Codex history for the current cwd and resumes the selected thread through a nonce', async () => {
-    const h = await createHarness('codex');
+  it.each(['codex', 'trae'] as const)('lists %s history for the current cwd and resumes the selected thread through a nonce', async (kind) => {
+    const h = await createHarness(kind);
     h.codexHistory.push(
       codexThread('thread-alpha-secret', 'alpha prompt', 1_700_000_100_000),
       codexThread('thread-beta-secret', 'beta prompt', 1_700_000_000_000),
@@ -260,6 +260,23 @@ describe('agent-aware resume commands', () => {
     expect(status).not.toContain('未建立');
   });
 
+
+  it('keeps TRAE history and catalog entries separate from Codex', async () => {
+    const h = await createHarness('trae');
+    h.codexHistory.push(codexThread('trae-thread', 'TRAE prompt', Date.now()));
+    h.catalog.upsertActive({ ...h.identity, agentId: 'codex', threadId: 'codex-thread' });
+    await h.run('/resume');
+    const [nonce] = resumeArgsFromCard(lastContent(h.channel));
+    await h.run(`/resume use ${nonce}`);
+    expect(h.catalog.activeFor({ ...h.identity, agentId: 'codex' })?.threadId).toBe('codex-thread');
+    expect(h.catalog.activeFor(h.identity)?.threadId).toBe('trae-thread');
+    expect(h.sessions.getRaw('chat-1')).toBeUndefined();
+    await h.catalog.flush();
+    const reloaded = new SessionCatalog(join(h.tmp.profile, 'session-catalog.json'));
+    await reloaded.load();
+    expect(reloaded.activeFor(h.identity)?.agentId).toBe('trae');
+  });
+
   it('does not list local history from home when no workspace is bound', async () => {
     const h = await createHarness('claude', { bindWorkspace: false, defaultWorkspace: false });
 
@@ -325,6 +342,7 @@ async function createHarness(
       controls,
       claudeHistoryProvider: async () => claudeHistory,
       codexHistoryProvider: async () => codexHistory,
+      traeHistoryProvider: async () => codexHistory,
     });
 
   const dispatchResumeArg = (arg: string): Promise<void> =>
@@ -385,7 +403,7 @@ async function commandIdentity(
 ): Promise<SessionCatalogIdentity> {
   const workspace = await resolveWorkingDirectory(cwd);
   if (!workspace.ok) throw new Error(workspace.userVisible);
-  const capability = agentKind === 'codex' ? codexCapability(profileConfig) : claudeCapability(profileConfig);
+  const capability = capabilityForProfile({ ...profileConfig, agentKind });
   const access = canUseDm(profileConfig, controls, 'ou-user');
   const policy = evaluateRunPolicy({
     scope: {
@@ -419,6 +437,7 @@ function appConfig(agentKind: AgentKind): ProfileConfig {
     accounts: { app: { id: 'app-id', secret: 'secret', tenant: 'feishu' } },
     access: { admins: ['ou-user'] },
     ...(agentKind === 'codex' ? { codex: { binaryPath: '/usr/local/bin/codex' } } : {}),
+    ...(agentKind === 'trae' ? { trae: { binaryPath: '/usr/local/bin/traecli' } } : {}),
   });
 }
 

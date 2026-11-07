@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -7,9 +7,12 @@ import { join } from 'node:path';
 import { loadRootConfig } from '@/config/profile-store';
 import { writeNewProfile } from '@/ui/onboard';
 
+import { writeFakeTrae } from '../../helpers/fake-trae';
+
 const roots: string[] = [];
 
 afterEach(async () => {
+  vi.unstubAllEnvs();
   await Promise.all(roots.splice(0).map((r) => rm(r, { recursive: true, force: true })));
 });
 
@@ -45,6 +48,18 @@ describe('writeNewProfile (new-profile is additive)', () => {
     expect(second.profile).toBe('work');
     const root2 = (await loadRootConfig(join(root, 'config.json')))!;
     expect(Object.keys(root2.profiles).sort()).toEqual(['claude', 'work']);
+  });
+
+  it('creates a TRAE profile through the Web onboarding persistence path', async () => {
+    const root = await tmpRoot();
+    const fake = await writeFakeTrae(root);
+    vi.stubEnv('LARK_CHANNEL_TRAE_BIN', fake.binary);
+    await writeNewProfile({
+      profile: 'trae-work', agentKind: 'trae', appId: 'cli_trae',
+      appSecret: 'secret', tenant: 'feishu', workspace: root,
+    }, root);
+    const saved = (await loadRootConfig(join(root, 'config.json')))!;
+    expect(saved.profiles['trae-work']).toMatchObject({ agentKind: 'trae', trae: { binaryPath: fake.binary } });
   });
 
   it('creates a profile with a Unicode (Chinese) name from the scanned bot name', async () => {

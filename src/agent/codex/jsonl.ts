@@ -19,6 +19,8 @@ export class CodexJsonlTranslator {
     anomalies: 0,
   };
 
+  constructor(private readonly agentName = 'codex') {}
+
   translate(raw: unknown): AgentEvent[] {
     if (this.terminal) return [];
     if (!isRecord(raw) || typeof raw.type !== 'string') {
@@ -41,10 +43,10 @@ export class CodexJsonlTranslator {
         return this.translateTurnCompleted(raw);
       case 'turn.failed':
         return this.prependPendingText(
-          this.translateTerminalError(raw, 'codex turn failed'),
+          this.translateTerminalError(raw, `${this.agentName} turn failed`),
         );
       case 'error':
-        return this.translateNonTerminalError(raw, 'codex error');
+        return this.translateNonTerminalError(raw, `${this.agentName} error`);
       default:
         this.drift.unknownEvents++;
         log.warn('jsonl', 'unknown_event', { eventType: raw.type });
@@ -60,7 +62,7 @@ export class CodexJsonlTranslator {
       return this.prependPendingText([
         {
           type: 'error',
-          message: truncate(`codex stream ended before a terminal event${detail}`, 4096),
+          message: truncate(`${this.agentName} stream ended before a terminal event${detail}`, 4096),
           terminationReason: 'failed',
         },
       ]);

@@ -1,6 +1,7 @@
 import { ClaudeAdapter } from '@/agent/claude/adapter';
 import { CodexAdapter } from '@/agent/codex/adapter';
 import { type AgentAvailability,AgentPreflightError } from '@/agent/preflight';
+import { TraeAdapter } from '@/agent/trae/adapter';
 import type { AgentAdapter } from '@/agent/types';
 import type { AppPaths } from '@/config/app-paths';
 import type { AgentKind, ProfileConfig } from '@/config/profile-schema';
@@ -34,6 +35,10 @@ export function createRuntimeAgent(
             : {}),
         }
       : undefined;
+  if (profileConfig.agentKind === 'trae') {
+    if (!profileConfig.trae?.binaryPath) throw new Error('trae profile requires trae.binaryPath');
+    return new TraeAdapter({ binary: profileConfig.trae.binaryPath, sandbox: profileConfig.sandbox.defaultMode, larkChannel });
+  }
   if (profileConfig.agentKind === 'codex') {
     const codex = profileConfig.codex;
     if (!codex?.binaryPath) {
@@ -59,9 +64,9 @@ export async function checkRuntimeAgentAvailability(agent: AgentAdapter): Promis
   if (ok) return { ok: true };
   const diagnostic = {
     code: 'agent-binary-not-found' as const,
-    agentId: agent.id === 'codex' ? ('codex' as const) : ('claude' as const),
+    agentId: agent.id === 'trae' ? ('trae' as const) : agent.id === 'codex' ? ('codex' as const) : ('claude' as const),
     agentName: agent.displayName,
-    command: agent.id === 'codex' ? 'codex' : 'claude',
+    command: agent.id === 'trae' ? 'traecli' : agent.id === 'codex' ? 'codex' : 'claude',
   };
   return { ok: false, diagnostic, error: new AgentPreflightError(diagnostic) };
 }
